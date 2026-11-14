@@ -1,0 +1,773 @@
+{
+ "variables": [
+  {
+   "id": "soilmoist",
+   "name": "Topsoil moisture",
+   "theme": "water",
+   "definition": "How wet the top 10 cm of soil is.",
+   "units": "kg/m²",
+   "sourceLabel": "GLDAS model via NASA Giovanni"
+  },
+  {
+   "id": "rootmoist",
+   "name": "Root-zone soil moisture",
+   "theme": "water",
+   "definition": "Water available to plant roots (roughly the top metre of soil).",
+   "units": "kg/m²",
+   "sourceLabel": "GLDAS model via NASA Giovanni"
+  },
+  {
+   "id": "rain",
+   "name": "Rainfall",
+   "theme": "water",
+   "definition": "Rain falling on the land surface.",
+   "units": "mm/day",
+   "sourceLabel": "GLDAS model via NASA Giovanni"
+  },
+  {
+   "id": "evap",
+   "name": "Evaporation",
+   "theme": "water",
+   "definition": "Water going back into the air from soil, water and plants.",
+   "units": "mm/day",
+   "sourceLabel": "GLDAS model via NASA Giovanni"
+  },
+  {
+   "id": "snow",
+   "name": "Snow water",
+   "theme": "water",
+   "definition": "How much water is stored in the snowpack.",
+   "units": "mm",
+   "sourceLabel": "GLDAS model via NASA Giovanni"
+  },
+  {
+   "id": "st_temp",
+   "name": "Station temperature",
+   "theme": "heat",
+   "definition": "Average monthly temperature measured at a weather station.",
+   "units": "°C",
+   "sourceLabel": "NOAA Climate Data Online (station)"
+  },
+  {
+   "id": "st_rain",
+   "name": "Station rainfall",
+   "theme": "water",
+   "definition": "Total monthly rain and snow measured at a weather station.",
+   "units": "mm",
+   "sourceLabel": "NOAA Climate Data Online (station)"
+  }
+ ],
+ "places": [
+  {
+   "id": "spain",
+   "name": "Central Spain",
+   "lat": 40.4,
+   "lon": -3.7,
+   "preset": true
+  },
+  {
+   "id": "alps",
+   "name": "Swiss Alps",
+   "lat": 46.5,
+   "lon": 8.0,
+   "preset": true
+  },
+  {
+   "id": "delhi",
+   "name": "Delhi, India",
+   "lat": 28.6,
+   "lon": 77.2,
+   "preset": true
+  },
+  {
+   "id": "amazon",
+   "name": "Central Amazon",
+   "lat": -3.5,
+   "lon": -62.0,
+   "preset": true
+  },
+  {
+   "id": "sahel",
+   "name": "Sahel, Niger",
+   "lat": 14.0,
+   "lon": 2.0,
+   "preset": true
+  },
+  {
+   "id": "calif",
+   "name": "Central Valley, California",
+   "lat": 36.5,
+   "lon": -120.0,
+   "preset": true
+  },
+  {
+   "id": "madrid_st",
+   "name": "Madrid Retiro (station)",
+   "lat": 40.41,
+   "lon": -3.68,
+   "preset": true
+  },
+  {
+   "id": "iberia_+37p0_-9p0",
+   "name": "Iberia grid 37.0°, -9.0°",
+   "lat": 37.0,
+   "lon": -9.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+37p0_-5p0",
+   "name": "Iberia grid 37.0°, -5.0°",
+   "lat": 37.0,
+   "lon": -5.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+37p0_-3p0",
+   "name": "Iberia grid 37.0°, -3.0°",
+   "lat": 37.0,
+   "lon": -3.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+39p0_-9p0",
+   "name": "Iberia grid 39.0°, -9.0°",
+   "lat": 39.0,
+   "lon": -9.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+39p0_-7p0",
+   "name": "Iberia grid 39.0°, -7.0°",
+   "lat": 39.0,
+   "lon": -7.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+39p0_-5p0",
+   "name": "Iberia grid 39.0°, -5.0°",
+   "lat": 39.0,
+   "lon": -5.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+39p0_-3p0",
+   "name": "Iberia grid 39.0°, -3.0°",
+   "lat": 39.0,
+   "lon": -3.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+39p0_-1p0",
+   "name": "Iberia grid 39.0°, -1.0°",
+   "lat": 39.0,
+   "lon": -1.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+41p0_-7p0",
+   "name": "Iberia grid 41.0°, -7.0°",
+   "lat": 41.0,
+   "lon": -7.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+41p0_-5p0",
+   "name": "Iberia grid 41.0°, -5.0°",
+   "lat": 41.0,
+   "lon": -5.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+41p0_-3p0",
+   "name": "Iberia grid 41.0°, -3.0°",
+   "lat": 41.0,
+   "lon": -3.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+41p0_-1p0",
+   "name": "Iberia grid 41.0°, -1.0°",
+   "lat": 41.0,
+   "lon": -1.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+41p0_+1p0",
+   "name": "Iberia grid 41.0°, 1.0°",
+   "lat": 41.0,
+   "lon": 1.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_-9p0",
+   "name": "Iberia grid 43.0°, -9.0°",
+   "lat": 43.0,
+   "lon": -9.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_-7p0",
+   "name": "Iberia grid 43.0°, -7.0°",
+   "lat": 43.0,
+   "lon": -7.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_-5p0",
+   "name": "Iberia grid 43.0°, -5.0°",
+   "lat": 43.0,
+   "lon": -5.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_-3p0",
+   "name": "Iberia grid 43.0°, -3.0°",
+   "lat": 43.0,
+   "lon": -3.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_-1p0",
+   "name": "Iberia grid 43.0°, -1.0°",
+   "lat": 43.0,
+   "lon": -1.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_+1p0",
+   "name": "Iberia grid 43.0°, 1.0°",
+   "lat": 43.0,
+   "lon": 1.0,
+   "preset": false
+  },
+  {
+   "id": "iberia_+43p0_+3p0",
+   "name": "Iberia grid 43.0°, 3.0°",
+   "lat": 43.0,
+   "lon": 3.0,
+   "preset": false
+  }
+ ],
+ "series": [
+  {
+   "place": "alps",
+   "variable": "evap",
+   "file": "series/alps_evap.json",
+   "summary": {
+    "senPerDecade": 0.105342,
+    "p": 0.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "alps",
+   "variable": "rain",
+   "file": "series/alps_rain.json",
+   "summary": {
+    "senPerDecade": -0.235976,
+    "p": 0.03495,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "alps",
+   "variable": "rootmoist",
+   "file": "series/alps_rootmoist.json",
+   "summary": {
+    "senPerDecade": 10.88448,
+    "p": 0.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "alps",
+   "variable": "snow",
+   "file": "series/alps_snow.json",
+   "summary": {
+    "senPerDecade": -60.419063,
+    "p": 0.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "alps",
+   "variable": "soilmoist",
+   "file": "series/alps_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.047544,
+    "p": 0.90356,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "amazon",
+   "variable": "evap",
+   "file": "series/amazon_evap.json",
+   "summary": {
+    "senPerDecade": 0.179107,
+    "p": 0.02746,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "amazon",
+   "variable": "rain",
+   "file": "series/amazon_rain.json",
+   "summary": {
+    "senPerDecade": -0.459838,
+    "p": 0.01944,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "amazon",
+   "variable": "rootmoist",
+   "file": "series/amazon_rootmoist.json",
+   "summary": {
+    "senPerDecade": -19.63177,
+    "p": 0.00452,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "amazon",
+   "variable": "snow",
+   "file": "series/amazon_snow.json",
+   "summary": {
+    "senPerDecade": 0.0,
+    "p": 1.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "amazon",
+   "variable": "soilmoist",
+   "file": "series/amazon_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.592841,
+    "p": 0.00536,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "calif",
+   "variable": "evap",
+   "file": "series/calif_evap.json",
+   "summary": {
+    "senPerDecade": 0.011679,
+    "p": 0.63943,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "calif",
+   "variable": "rain",
+   "file": "series/calif_rain.json",
+   "summary": {
+    "senPerDecade": 0.000669,
+    "p": 0.97014,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "calif",
+   "variable": "rootmoist",
+   "file": "series/calif_rootmoist.json",
+   "summary": {
+    "senPerDecade": -0.852329,
+    "p": 0.63568,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "calif",
+   "variable": "snow",
+   "file": "series/calif_snow.json",
+   "summary": {
+    "senPerDecade": 0.0,
+    "p": 0.1511,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "calif",
+   "variable": "soilmoist",
+   "file": "series/calif_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.088159,
+    "p": 0.76528,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "delhi",
+   "variable": "evap",
+   "file": "series/delhi_evap.json",
+   "summary": {
+    "senPerDecade": 0.005247,
+    "p": 0.02292,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "delhi",
+   "variable": "rain",
+   "file": "series/delhi_rain.json",
+   "summary": {
+    "senPerDecade": 0.10794,
+    "p": 0.04109,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "delhi",
+   "variable": "rootmoist",
+   "file": "series/delhi_rootmoist.json",
+   "summary": {
+    "senPerDecade": 0.159958,
+    "p": 0.00914,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "delhi",
+   "variable": "snow",
+   "file": "series/delhi_snow.json",
+   "summary": {
+    "senPerDecade": 0.0,
+    "p": 1.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "delhi",
+   "variable": "soilmoist",
+   "file": "series/delhi_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.159958,
+    "p": 0.00914,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+37p0_-3p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+37p0_-3p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.685934,
+    "p": 0.09676,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+37p0_-5p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+37p0_-5p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.901524,
+    "p": 0.00952,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+37p0_-9p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+37p0_-9p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.128154,
+    "p": 0.70295,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+39p0_-1p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+39p0_-1p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.008315,
+    "p": 0.97834,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+39p0_-3p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+39p0_-3p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -1.019311,
+    "p": 0.00344,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+39p0_-5p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+39p0_-5p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.481584,
+    "p": 0.11423,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+39p0_-7p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+39p0_-7p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.459553,
+    "p": 0.18715,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+39p0_-9p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+39p0_-9p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.15523,
+    "p": 0.70048,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+41p0_+1p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+41p0_+1p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.266593,
+    "p": 5e-05,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+41p0_-1p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+41p0_-1p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.592358,
+    "p": 0.01212,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+41p0_-3p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+41p0_-3p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.49708,
+    "p": 0.13469,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+41p0_-5p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+41p0_-5p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.511719,
+    "p": 0.06173,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+41p0_-7p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+41p0_-7p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.301412,
+    "p": 0.26496,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_+1p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_+1p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.307542,
+    "p": 0.29604,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_+3p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_+3p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.323665,
+    "p": 0.0274,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_-1p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_-1p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.264936,
+    "p": 0.45343,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_-3p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_-3p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.729509,
+    "p": 0.01629,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_-5p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_-5p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.2926,
+    "p": 0.32843,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_-7p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_-7p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.183992,
+    "p": 0.62692,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "iberia_+43p0_-9p0",
+   "variable": "soilmoist",
+   "file": "series/iberia_+43p0_-9p0_soilmoist.json",
+   "summary": {
+    "senPerDecade": 0.185171,
+    "p": 0.57583,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "madrid_st",
+   "variable": "st_rain",
+   "file": "series/madrid_st_st_rain.json",
+   "summary": {
+    "senPerDecade": -0.698043,
+    "p": 0.10937,
+    "years": 74.9
+   }
+  },
+  {
+   "place": "madrid_st",
+   "variable": "st_temp",
+   "file": "series/madrid_st_st_temp.json",
+   "summary": {
+    "senPerDecade": 0.342634,
+    "p": 0.0,
+    "years": 74.9
+   }
+  },
+  {
+   "place": "sahel",
+   "variable": "evap",
+   "file": "series/sahel_evap.json",
+   "summary": {
+    "senPerDecade": 0.00402,
+    "p": 0.58087,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "sahel",
+   "variable": "rain",
+   "file": "series/sahel_rain.json",
+   "summary": {
+    "senPerDecade": -0.00257,
+    "p": 0.42705,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "sahel",
+   "variable": "rootmoist",
+   "file": "series/sahel_rootmoist.json",
+   "summary": {
+    "senPerDecade": -2.497225,
+    "p": 0.0233,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "sahel",
+   "variable": "snow",
+   "file": "series/sahel_snow.json",
+   "summary": {
+    "senPerDecade": 0.0,
+    "p": 1.0,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "sahel",
+   "variable": "soilmoist",
+   "file": "series/sahel_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.511785,
+    "p": 0.00015,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "spain",
+   "variable": "evap",
+   "file": "series/spain_evap.json",
+   "summary": {
+    "senPerDecade": 0.04062,
+    "p": 0.00217,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "spain",
+   "variable": "rain",
+   "file": "series/spain_rain.json",
+   "summary": {
+    "senPerDecade": -0.018538,
+    "p": 0.81013,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "spain",
+   "variable": "rootmoist",
+   "file": "series/spain_rootmoist.json",
+   "summary": {
+    "senPerDecade": -2.075834,
+    "p": 0.17304,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "spain",
+   "variable": "snow",
+   "file": "series/spain_snow.json",
+   "summary": {
+    "senPerDecade": 0.0,
+    "p": 0.17171,
+    "years": 24.9
+   }
+  },
+  {
+   "place": "spain",
+   "variable": "soilmoist",
+   "file": "series/spain_soilmoist.json",
+   "summary": {
+    "senPerDecade": -0.145709,
+    "p": 0.37006,
+    "years": 24.9
+   }
+  }
+ ]
+}

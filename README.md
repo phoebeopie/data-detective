@@ -14,7 +14,7 @@ It was built in 48 hours for a hackathon.
   - a plain-language verdict ("Significantly falling", "Slightly rising — not proven yet", …),
   - two trend tests side by side, with an explanation when they disagree,
   - a slider to change the start year and see whether a longer record changes the verdict.
-- **Case files.** Worked investigations, such as *Is Spain drying out?*, *Is the snow in the Alps disappearing?* and *Is Delhi heating up?*
+- **Case files.** Worked investigations, such as *Is Spain drying out?*, *Is the snow in the Alps disappearing?* and *Is Madrid warming?*
 - **How it works.** Four short explainers: trends, seasonal anomalies, p-values and the Mann-Kendall test.
 - **Trend map.** Map dots are coloured green (significantly rising), red (significantly falling) or grey (not significant) for the selected variable.
 
@@ -43,11 +43,13 @@ data-detective/
 
 | Source | What we use | Access |
 |---|---|---|
-| [NASA Giovanni](https://giovanni.gsfc.nasa.gov/) — GLDAS Noah 0.25° monthly (`GLDAS_NOAH025_M_2_1`) | Topsoil and root-zone soil moisture, rainfall, evaporation, snow water equivalent, air temperature, 2000–2024 | Giovanni Time Series API; needs a free [Earthdata Login](https://urs.earthdata.nasa.gov/) token |
+| [NASA Giovanni](https://giovanni.gsfc.nasa.gov/) — GLDAS Noah 0.25° monthly (`GLDAS_NOAH025_M_2_1`) | Topsoil and root-zone soil moisture, rainfall, evaporation, snow water equivalent, 2000–2024 | Giovanni Time Series API; needs a free [Earthdata Login](https://urs.earthdata.nasa.gov/) token |
 | [NOAA Climate Data Online](https://www.ncei.noaa.gov/cdo-web/) — Global Summary of the Month | Station temperature (TAVG) and precipitation (PRCP) | NCEI Access Data Service; no token needed |
 | Your own CSVs | Any `date,value` export, e.g. a Giovanni website "Area-Averaged Time Series" | Add to `CSV_SERIES` in `build_data.py` |
 
-Unit conversions: GLDAS fluxes (kg m⁻² s⁻¹) × 86 400 → mm/day; temperature K − 273.15 → °C.
+Unit conversions: GLDAS fluxes (kg m⁻² s⁻¹) × 86 400 → mm/day.
+
+**Known issue: GLDAS air temperature is switched off.** Over 2000–2024 it warmed about 1.7–2.0 °C per decade at our test points (central Spain, Delhi, the Alps), roughly five times the +0.34 °C/decade measured at the Madrid Retiro station. That is almost certainly an artefact of changes in the model's input data, not real warming. Temperature currently comes from NOAA weather stations only. A planned replacement is MERRA-2 2 m temperature via Giovanni (see the comment in `build_data.py`).
 
 ## Method
 

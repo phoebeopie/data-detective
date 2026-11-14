@@ -1,0 +1,25 @@
+{
+ "cases": [
+  {
+   "tag": "Water",
+   "title": "Is Spain drying out?",
+   "summary": "The soil-moisture line slopes down. But is that proof, or just a run of dry years? Watch the two tests disagree.",
+   "place": "spain",
+   "variable": "soilmoist"
+  },
+  {
+   "tag": "Water",
+   "title": "Is the snow in the Alps disappearing?",
+   "summary": "Snow is the Alps' water tower. Is it holding less water than it used to?",
+   "place": "alps",
+   "variable": "snow"
+  },
+  {
+   "tag": "Heat",
+   "title": "Is Madrid warming?",
+   "summary": "75 years of thermometer readings from one Madrid park. Slide the start year and see how much record you need before the warming is proven.",
+   "place": "madrid_st",
+   "variable": "st_temp"
+  }
+ ]
+}

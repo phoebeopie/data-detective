@@ -70,10 +70,14 @@ VARIABLES = [
          definition="How much water is stored in the snowpack.",
          units="mm", source="giovanni", data_id=GLDAS + "SWE_inst",
          sourceLabel="GLDAS model via NASA Giovanni"),
-    dict(id="tair", name="Air temperature", theme="heat",
-         definition="Temperature about 2 m above the ground.",
-         units="°C", source="giovanni", data_id=GLDAS + "Tair_f_inst", offset=-273.15,
-         sourceLabel="GLDAS model via NASA Giovanni"),
+    # GLDAS air temperature is switched off: at our test points it warmed ~1.7-2.0 °C/decade
+    # over 2000-2024 (about 5x the Madrid station's +0.34), most likely an artefact of
+    # changes in the model's forcing data. Candidate replacement: MERRA-2 T2M
+    # (data_id "M2TMNXSLV_5_12_4_T2M"), which needs GES DISC authorized in your Earthdata profile.
+    # dict(id="tair", name="Air temperature", theme="heat",
+    #      definition="Temperature about 2 m above the ground.",
+    #      units="°C", source="giovanni", data_id=GLDAS + "Tair_f_inst", offset=-273.15,
+    #      sourceLabel="GLDAS model via NASA Giovanni"),
     # NOAA weather stations (CDO). Each CDO place below lists its station id.
     dict(id="st_temp", name="Station temperature", theme="heat",
          definition="Average monthly temperature measured at a weather station.",
@@ -103,7 +107,7 @@ PLACES = [
 # Keep them modest: every point is one request per variable.
 GRIDS = [
     dict(prefix="iberia", name="Iberia", south=37, north=43, west=-9, east=3, step=2,
-         vars=["soilmoist", "tair"]),
+         vars=["soilmoist"]),
     # Global coarse grid (≈2,600 requests per variable — run overnight, not during the demo):
     # dict(prefix="globe", name="Global", south=-55, north=70, west=-180, east=175, step=5,
     #      vars=["tair"]),
@@ -122,9 +126,10 @@ CASES = [
     dict(tag="Water", title="Is the snow in the Alps disappearing?",
          summary="Snow is the Alps' water tower. Is it holding less water than it used to?",
          place="alps", variable="snow"),
-    dict(tag="Heat", title="Is Delhi heating up?",
-         summary="Big cities warm for more than one reason. What does 20+ years of data say?",
-         place="delhi", variable="tair"),
+    dict(tag="Heat", title="Is Madrid warming?",
+         summary="75 years of thermometer readings from one Madrid park. Slide the start year "
+                 "and see how much record you need before the warming is proven.",
+         place="madrid_st", variable="st_temp"),
 ]
 
 GIOVANNI_START, GIOVANNI_END = "2000-01-01T00:00:00", "2024-12-31T23:59:59"
