@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Earth Data Detective — is it really changing?</title>
+  <meta name="description" content="Pick a place and an Earth science variable, see how it changed over time, and test whether the trend is statistically significant." />
+
+  <!-- Map (Leaflet) + charts (Plotly) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="https://cdn.plot.ly/plotly-basic-2.35.2.min.js" defer></script>
+
+  <!-- Our code -->
+  <script src="stats.js" defer></script>
+  <script src="app.js" defer></script>
+
+  <style>
+    :root {
+      --ink: #14213d;
+      --ink-soft: #4a5568;
+      --paper: #f7f4ec;
+      --card: #ffffff;
+      --line: #e2ddd0;
+      --accent: #c8553d;      /* "evidence" red */
+      --rise: #2a7f62;        /* rising trend */
+      --fall: #b5452f;        /* falling trend */
+      --muted: #9aa3b2;       /* not significant */
+      --highlight: #f2c14e;
+      --radius: 14px;
+      --shadow: 0 1px 2px rgba(20,33,61,.06), 0 4px 16px rgba(20,33,61,.06);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.5; }
+    h1, h2, h3 { font-family: "Georgia", "Iowan Old Style", serif; font-weight: 600; margin: 0; }
+    a { color: var(--accent); }
+    button { font: inherit; cursor: pointer; }
+
+    /* ---------- header ---------- */
+    header {
+      background: var(--ink); color: #fff;
+      padding: 20px clamp(16px, 4vw, 48px);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand .badge {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--highlight); color: var(--ink);
+      display: grid; place-items: center; font-size: 20px;
+    }
+    .brand h1 { font-size: 1.4rem; }
+    .brand p { margin: 0; font-size: .85rem; opacity: .75; }
+    nav { display: flex; gap: 4px; }
+    nav button {
+      background: transparent; color: #fff; border: 1px solid transparent;
+      padding: 8px 14px; border-radius: 999px; opacity: .8;
+    }
+    nav button[aria-selected="true"] { border-color: rgba(255,255,255,.4); opacity: 1; background: rgba(255,255,255,.08); }
+
+    main { padding: 24px clamp(16px, 4vw, 48px) 48px; max-width: 1400px; margin: 0 auto; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ---------- investigate layout ---------- */
+    .investigate { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 24px; align-items: start; }
+    @media (max-width: 900px) { .investigate { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .steps { padding: 20px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 16px; }
+    .step h2 { font-size: 1.05rem; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .step h2 .num {
+      width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff;
+      font: 600 .8rem/24px system-ui; text-align: center; flex: none;
+    }
+    .hint { font-size: .85rem; color: var(--ink-soft); margin: -4px 0 10px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px;
+      padding: 6px 12px; font-size: .9rem; color: var(--ink);
+    }
+    .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+    #map { height: 240px; border-radius: 10px; border: 1px solid var(--line); }
+    .where-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; font-size: .85rem; color: var(--ink-soft); }
+    select {
+      font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    }
+
+    .var-list { display: flex; flex-direction: column; gap: 8px; }
+    .var-card {
+      text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 10px;
+      padding: 10px 12px; color: var(--ink);
+    }
+    .var-card strong { display: block; font-size: .95rem; }
+    .var-card span { font-size: .82rem; color: var(--ink-soft); }
+    .var-card .src { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .var-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,85,61,.18); }
+
+    /* ---------- results ---------- */
+    .results { display: flex; flex-direction: column; gap: 20px; }
+    .empty {
+      padding: 48px 24px; text-align: center; color: var(--ink-soft);
+    }
+    .empty .big { font-size: 2.4rem; }
+
+    .verdict { padding: 20px 24px; border-left: 6px solid var(--muted); }
+    .verdict.rise { border-left-color: var(--rise); }
+    .verdict.fall { border-left-color: var(--fall); }
+    .verdict .label { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+    .verdict h2 { font-size: 1.6rem; margin: 4px 0 6px; }
+    .verdict p { margin: 0; font-size: 1rem; }
+    .stamp {
+      display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 6px;
+      border: 2px solid currentColor; font: 700 .8rem system-ui; letter-spacing: .1em; text-transform: uppercase;
+      transform: rotate(-2deg);
+    }
+    .stamp.sig { color: var(--accent); }
+    .stamp.nsig { color: var(--muted); }
+
+    .chart-card { padding: 12px 12px 4px; }
+    .chart-card h3 { font-size: 1rem; padding: 4px 8px 0; }
+    .chart-card .sub { font-size: .82rem; color: var(--ink-soft); padding: 0 8px; margin: 2px 0 0; }
+    .chart { width: 100%; height: 260px; }
+
+    .evidence { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .evidence { grid-template-columns: 1fr; } }
+    .test { padding: 16px 18px; }
+    .test h3 { font-size: 1rem; }
+    .test .what { font-size: .82rem; color: var(--ink-soft); margin: 2px 0 10px; }
+    .test dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: .9rem; }
+    .test dt { color: var(--ink-soft); }
+    .test dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .explainer { padding: 16px 20px; background: #fff8e6; border-color: #f0dca6; }
+    .explainer h3 { font-size: 1rem; margin-bottom: 4px; }
+    .explainer p { margin: 0; font-size: .92rem; }
+
+    .slider-card { padding: 16px 20px; }
+    .slider-card h3 { font-size: 1rem; }
+    .slider-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+    input[type="range"] { flex: 1; accent-color: var(--accent); }
+    .slider-row output { font-variant-numeric: tabular-nums; min-width: 4ch; font-weight: 600; }
+
+    /* ---------- case files ---------- */
+    .cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .case { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+    .case .tag { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+    .case h3 { font-size: 1.2rem; }
+    .case p { margin: 0; color: var(--ink-soft); font-size: .92rem; flex: 1; }
+    .case button {
+      align-self: flex-start; margin-top: 8px; background: var(--ink); color: #fff; border: 0;
+      padding: 8px 16px; border-radius: 999px;
+    }
+
+    /* ---------- learn ---------- */
+    .learn { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .learn article { padding: 20px 22px; }
+    .learn h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .learn p { margin: 0 0 8px; font-size: .94rem; color: var(--ink-soft); }
+
+    .intro { margin-bottom: 20px; max-width: 760px; }
+    .intro h2 { font-size: 1.6rem; margin-bottom: 4px; }
+    .intro p { margin: 0; color: var(--ink-soft); }
+
+    footer {
+      border-top: 1px solid var(--line); padding: 20px clamp(16px, 4vw, 48px);
+      font-size: .82rem; color: var(--ink-soft);
+    }
+    .status { font-size: .85rem; color: var(--ink-soft); min-height: 1.2em; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <div class="badge" aria-hidden="true">🔍</div>
+      <div>
+        <h1>Earth Data Detective</h1>
+        <p>Is it really changing — or is it just noise?</p>
+      </div>
+    </div>
+    <nav role="tablist" aria-label="Sections">
+      <button role="tab" data-view="investigate" aria-selected="true">Investigate</button>
+      <button role="tab" data-view="cases" aria-selected="false">Case files</button>
+      <button role="tab" data-view="learn" aria-selected="false">How it works</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- =============================== INVESTIGATE =============================== -->
+    <section id="view-investigate" class="view active" aria-labelledby="inv-title">
+      <div class="intro">
+        <h2 id="inv-title">Open an investigation</h2>
+        <p>Choose what you're curious about and where. We'll pull NASA and NOAA data, remove the seasons, and test whether the change is real.</p>
+      </div>
+
+      <div class="investigate">
+        <!-- ---------- the detective's questions ---------- -->
+        <aside class="card steps" aria-label="Investigation steps">
+          <div class="step">
+            <h2><span class="num">1</span> What are you curious about?</h2>
+            <div class="chips" id="theme-chips" role="group" aria-label="Theme">
+              <button class="chip" data-theme="water" aria-pressed="false">💧 Water</button>
+              <button class="chip" data-theme="heat" aria-pressed="false">🌡️ Heat</button>
+              <button class="chip" data-theme="air" aria-pressed="false">🌫️ Air</button>
+              <button class="chip" data-theme="plants" aria-pressed="false">🌿 Plants</button>
+              <button class="chip" data-theme="all" aria-pressed="true">Everything</button>
+            </div>
+          </div>
+
+          <div class="step">
+            <h2><span class="num">2</span> Where?</h2>
+            <p class="hint">Click the map to choose a spot, or pick a place.</p>
+            <div id="map" role="application" aria-label="Map: click to choose a location"></div>
+            <div class="where-row">
+              <label for="place-select" class="sr-only">Preset place</label>
+              <select id="place-select">
+                <option value="">Choose a place…</option>
+              </select>
+              <span id="where-label">No place chosen yet</span>
+            </div>
+          </div>
+
+          <div class="step">
+            <h2><span class="num">3</span> Pick your clue</h2>
+            <p class="hint">Each clue is a measurement from a satellite or a model.</p>
+            <div class="var-list" id="var-list" role="group" aria-label="Variables">
+              <!-- filled by app.js from data/catalog.json -->
+            </div>
+          </div>
+
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </aside>
+
+        <!-- ---------- the evidence ---------- -->
+        <div class="results" id="results">
+          <div class="card empty" id="empty-state">
+            <div class="big" aria-hidden="true">🗺️</div>
+            <p>Pick a place and a clue to start your investigation.</p>
+          </div>
+
+          <div id="result-body" hidden>
+            <div class="results">
+              <article class="card verdict" id="verdict-card" aria-live="polite">
+                <div class="label" id="verdict-label">Verdict</div>
+                <h2 id="verdict-headline">—</h2>
+                <p id="verdict-text"></p>
+                <span class="stamp" id="verdict-stamp"></span>
+              </article>
+
+              <div class="card chart-card">
+                <h3>What the data shows</h3>
+                <p class="sub" id="raw-sub">Monthly values — the up-and-down wiggle is the seasons.</p>
+                <div class="chart" id="chart-raw"></div>
+              </div>
+
+              <div class="card chart-card">
+                <h3>Seasons removed, trend revealed</h3>
+                <p class="sub">Each point shows how unusual a month was compared with that month's average.</p>
+                <div class="chart" id="chart-anom"></div>
+              </div>
+
+              <div class="evidence">
+                <div class="card test">
+                  <h3>Straight-line trend (t-test)</h3>
+                  <p class="what">Fits the best straight line and asks if its slope is different from zero.</p>
+                  <dl>
+                    <dt>Rate</dt><dd id="lin-rate">—</dd>
+                    <dt>95% range</dt><dd id="lin-ci">—</dd>
+                    <dt>p-value</dt><dd id="lin-p">—</dd>
+                    <dt>Significant?</dt><dd id="lin-sig">—</dd>
+                  </dl>
+                </div>
+                <div class="card test">
+                  <h3>Mann-Kendall + Sen's slope</h3>
+                  <p class="what">Compares every month with every later month. Corrected for "sticky" months (droughts last).</p>
+                  <dl>
+                    <dt>Rate</dt><dd id="mk-rate">—</dd>
+                    <dt>Up vs down score</dt><dd id="mk-tau">—</dd>
+                    <dt>p-value</dt><dd id="mk-p">—</dd>
+                    <dt>Significant?</dt><dd id="mk-sig">—</dd>
+                  </dl>
+                </div>
+              </div>
+
+              <div class="card explainer" id="disagree-box" hidden>
+                <h3>🤔 Why do the two tests disagree?</h3>
+                <p>Months aren't independent: a dry month is usually followed by another dry month. The straight-line test treats every month as fresh evidence, so it can be over-confident. Mann-Kendall here is corrected for this, so it's more cautious — trust it more.</p>
+              </div>
+
+              <div class="card slider-card">
+                <h3>⏳ Does a longer record change the verdict?</h3>
+                <p class="hint">Move the start year. Short records often can't prove a trend — even a real one.</p>
+                <div class="slider-row">
+                  <label for="start-year" class="sr-only">Start year</label>
+                  <input type="range" id="start-year" min="1980" max="2015" step="1" value="1980" />
+                  <output id="start-year-out" for="start-year">—</output>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================== CASE FILES =============================== -->
+    <section id="view-cases" class="view" aria-labelledby="cases-title">
+      <div class="intro">
+        <h2 id="cases-title">Case files</h2>
+        <p>Worked investigations. Open one to see how a detective reads the evidence.</p>
+      </div>
+      <div class="cases" id="case-list">
+        <!-- filled by app.js from data/cases.json -->
+      </div>
+    </section>
+
+    <!-- =============================== HOW IT WORKS =============================== -->
+    <section id="view-learn" class="view" aria-labelledby="learn-title">
+      <div class="intro">
+        <h2 id="learn-title">How the detective works</h2>
+        <p>Four ideas you need to read the evidence.</p>
+      </div>
+      <div class="learn">
+        <article class="card">
+          <h3>1. What is a trend?</h3>
+          <p>A steady move in one direction over many years — rising, falling, thickening, thinning. Not the ups and downs of a single year.</p>
+          <p>The same thing can rise in one place and fall in another, even when one process causes both. That's why <em>where</em> you look matters.</p>
+        </article>
+        <article class="card">
+          <h3>2. Why remove the seasons?</h3>
+          <p>Summers are hot and winters are cold every year. That big wiggle can hide a small, slow change. We subtract each month's long-term average, so January is compared with other Januaries.</p>
+        </article>
+        <article class="card">
+          <h3>3. What does "significant" mean?</h3>
+          <p>The p-value is the chance of seeing a trend this strong if nothing were really changing. Below 0.05 (5%), we call it significant.</p>
+          <p>Not significant doesn't mean "no change" — it means the evidence isn't strong enough <em>yet</em>. A longer record often settles it.</p>
+        </article>
+        <article class="card">
+          <h3>4. The Mann-Kendall test</h3>
+          <p>Compare every month with every later month and count how often things went up versus down. If "down" wins by far more than chance would explain, the trend is significant.</p>
+          <p>Sen's slope gives the speed: the middle value of all the month-to-month slopes. Both ignore extreme outliers.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Data: NASA <a href="https://giovanni.gsfc.nasa.gov/" target="_blank" rel="noopener">Giovanni</a>
+      (GLDAS, MERRA-2, GPM, OMI, AIRS, MODIS) and NOAA
+      <a href="https://www.ncei.noaa.gov/cdo-web/" target="_blank" rel="noopener">Climate Data Online</a>.
+      Method: seasonal anomalies, least-squares trend with 95% confidence interval and t-test,
+      Mann-Kendall test with Hamed-Rao autocorrelation correction (12-month lag), and Sen's slope.
+      Built in 48 hours for a hackathon.
+    </p>
+  </footer>
+</body>
+</html>

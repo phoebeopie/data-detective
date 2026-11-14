@@ -1,0 +1,9 @@
+pipeline/cache/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+trend_plot.png
+*.csv
+!pipeline/csv/*.csv
+.edl_token
