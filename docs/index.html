@@ -177,8 +177,13 @@
   .guide { text-align: left; }
   .guide h4, .rules-sheet h4 { font: 700 .7rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--blue); margin: var(--s3) 0 var(--s1); }
   .guide ul { margin: 0; padding-left: 18px; font-size: .9rem; color: var(--ink-soft); }
-  .rules-sheet { margin-top: var(--s7); }
-  .rules-title { font: var(--h-type); margin: var(--s2) 0 var(--s3); }
+  .rules-sheet { margin-top: var(--s7); padding: var(--s4); }
+  .rules-sheet:not([open]) { background: transparent; border: 0; box-shadow: none; padding: 0; }
+  .rules-btn { list-style: none; width: fit-content; }
+  .rules-btn::-webkit-details-marker { display: none; }
+  .rules-btn .chev { transition: transform .2s; }
+  .rules-sheet[open] .rules-btn .chev { transform: rotate(180deg); }
+  .rules-sheet[open] #rules-explained { margin-top: var(--s5); }
   .rules-intro { color: var(--ink-soft); max-width: 820px; }
   .rules-intro + .rules-intro { margin-top: var(--s2); }
   .tier-key { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: var(--s4) 0; font-size: .9rem; color: var(--ink-soft); }
@@ -314,7 +319,24 @@
   .mini-val { font: .74rem var(--mono); color: var(--ink-soft); white-space: nowrap; } .mini-val b { color: var(--ink); }
   .mini-chart { height: 118px; }
   .mini-na { font-size: .8rem; color: var(--muted-text); padding: var(--s4) 0; }
-  .year-log { margin-top: var(--s4); }
+  .year-log { margin-top: var(--s3); }
+  /* replay screen fits one desktop screen: tree, controls and all eight charts without scrolling */
+  #s-replay .page-head { padding: var(--s4) 0 0; gap: var(--s1); }
+  #s-replay .page-head .display { font-size: clamp(2rem, 3.6vw, 3rem); }
+  #s-replay .page-head .lead { font-size: .98rem; max-width: 900px; }
+  #s-replay .wrap { max-width: 1440px; padding-bottom: var(--s5); }
+  .replay3 { margin-top: var(--s4); }
+  @media (min-width: 1101px) {
+    #s-replay .scene { height: clamp(180px, calc(100vh - 550px), 420px); }
+    #s-replay .mini { padding: 6px var(--s3); }
+    #s-replay .mini-chart { height: clamp(48px, calc((100vh - 64px - 160px) / 4 - 76px), 140px); }
+    #s-replay .side { gap: var(--s2); }
+    #s-replay .controls, #s-replay .meters { margin-top: var(--s2); }
+    #s-replay .sim-note { font-size: .66rem; margin-top: var(--s1); }
+    #s-replay .timeline span { height: 18px; }
+    #s-replay .signals { margin-top: var(--s1); }
+    #s-replay .see-next { margin-top: var(--s2); }
+  }
   .scene { position: relative; height: 420px; border-radius: var(--r-lg); overflow: hidden; border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
     background-color: #e6edfb; background-image: radial-gradient(rgba(27,33,64,.07) 1px, transparent 1.2px), linear-gradient(#dbe4fa 0%, #eef2fc 55%, #fbf9f1 100%);
     background-size: 14px 14px, 100% 100%; }
@@ -323,7 +345,7 @@
   .scene .land-svg { bottom: 0; height: 120px; }
   .scene .sky-sun { position: absolute; right: 5%; top: 74px; width: clamp(60px, 15%, 96px); pointer-events: none; }
   .scene .sky-clouds { position: absolute; left: 4%; top: 96px; width: clamp(90px, 22%, 140px); pointer-events: none; }
-  .scene .tree { position: absolute; left: 50%; bottom: 52px; width: min(300px, 72%); transform-origin: 50% 100%; transition: transform .45s ease, filter .45s ease; }
+  .scene .tree { position: absolute; left: 50%; bottom: 52px; height: min(330px, calc(100% - 64px)); max-width: 80%; width: auto; object-fit: contain; object-position: 50% 100%; transform-origin: 50% 100%; transition: transform .45s ease, filter .45s ease; }
   .scene .year { position: absolute; top: var(--s3); left: var(--s4); font: italic 4rem/1 var(--serif); }
   .scene .place { position: absolute; top: var(--s5); right: var(--s4); max-width: 55%; font: 700 .72rem/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase;
     background: #fff; border: 1.5px solid var(--ink); border-radius: var(--r-pill); padding: var(--s1) 10px; text-align: center; }
@@ -383,8 +405,7 @@
   .fineprint { margin-top: var(--s5); }
   .outcome { margin-top: var(--s4); font-size: clamp(1.1rem, 2.2vw, 1.3rem); color: var(--ink); max-width: 860px; }
   .v-sec { border-top: 1.5px dashed var(--rule); margin-top: var(--s6); padding-top: var(--s5); }
-  .v-sec > h3 { font: var(--h-sec); margin-bottom: var(--s2); }
-  .v-sec > h3::before { content: "§ "; color: var(--blue); }
+  .v-sec > h3 { font: 700 clamp(1.4rem, 2.6vw, 1.75rem)/1.2 var(--type); margin-bottom: var(--s3); }
   .v-sec > p { color: var(--ink-soft); max-width: 860px; }
   .v-sec > p + p { margin-top: var(--s2); }
   .trends { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: var(--s4); margin-top: var(--s4); }
@@ -517,12 +538,10 @@
               <div id="guide" class="guide" aria-label="Species guide"></div>
             </aside>
           </div>
-          <section class="sheet dots rules-sheet" aria-labelledby="rules-title">
-            <div class="kicker">Before you start</div>
-            <h3 class="rules-title" id="rules-title">The warning signs we check</h3>
+          <details class="sheet dots rules-sheet">
+            <summary class="btn ghost rules-btn"><span>The warning signs we check</span><span class="chev" aria-hidden="true">▾</span></summary>
             <div id="rules-explained"></div>
-            <div class="corner"></div>
-          </section>
+          </details>
         </div>
       </div>
     </div>
@@ -560,7 +579,6 @@
   <section class="screen hidden" id="s-replay" aria-labelledby="replay-title">
     <div class="wrap">
       <div class="page-head">
-        <div class="kicker" id="replay-kicker">Replay · 20 annual records · 2005–2024</div>
         <h2 class="display" id="replay-title">Twenty years in …</h2>
         <p class="lead" id="replay-sub"></p>
       </div>
@@ -609,10 +627,11 @@
             <div class="tl-legend" aria-hidden="true"><span><i class="k-ok"></i>no stress signal</span><span><i class="k-meh"></i>weak (tier C)</span><span><i class="k-bad"></i>strong (tier A/B)</span></div>
             <p class="signals" id="signals" aria-live="polite"></p>
           </div>
+          <div class="see-next"><button class="btn" id="to-verdict">See what happened <span class="arrow" aria-hidden="true">→</span></button></div>
         </div>
         <div class="side side-r" id="charts-right" aria-label="Supporting clues"></div>
       </div>
-      <div class="see-next"><button class="btn" id="to-verdict">See what happened <span class="arrow" aria-hidden="true">→</span></button></div>
+
     </div>
   </section>
 
@@ -1436,6 +1455,34 @@ function openRegion(id, viaKeyboard) {
   updateMarks(); renderPanel(); updatePlant();
   if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
+// statistics for one clue at one site (same results and wording as the first version's region file)
+function statsBlock(reg, v) {
+  const D = DATA[reg.id], d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality, up = mk.senSlopePerDecade > 0, R = D.rules;
+  const cc = CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id];
+  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
+  return `<div>
+      <div class="def-h">Seasons removed — is there a trend?</div>
+      <div class="chart" id="pchart-${v.id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
+      <p class="src">Monthly difference from normal (${v.units}), ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend${q ? ` · ${q.points_used ? q.points_used + " grid points · " : ""}${q.months_total - q.months_missing}/${q.months_total} months${q.months_missing ? " (gaps left empty)" : ""}${q.values_removed ? ` · ${q.values_removed} impossible values removed` : ""}` : ""}.</p>
+    </div>
+    <div class="finding">
+      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
+      <div><strong>${trendWord(d)}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
+    </div>
+    <div class="tests">
+      <div class="tag"><h5>Mann-Kendall · Sen's slope</h5><dl>
+        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
+        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
+        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
+      <div class="tag"><h5>Straight line · t-test</h5><dl>
+        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
+        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
+        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
+    </div>
+    ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
+    ${myRules.length ? `<div><div class="def-h">Stress signals that use this clue (years fired, ${FIRST_YEAR}–${LAST_YEAR})</div><div class="chips">${myRules.map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length} of ${YEARS.length}</span>`).join("")}</div></div>` : ""}`;
+}
 function closePanel() {
   $("dossier").classList.add("hidden");
   const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
@@ -1454,6 +1501,7 @@ function renderPanel() {
       <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
       <div class="def hidden" id="def-${v.id}">
         <p>${v.def.split(/(?<=\.)\s/)[0]} <span class="src">${v.id === "ndvi" ? `<a href="${ds.url}" target="_blank" rel="noopener">MOD13A3 dataset</a>` : `<a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni glossary: ${shortName(v)}</a>`}</span></p>
+        ${missing ? "" : statsBlock(reg, v)}
       </div>
       ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}" aria-describedby="pin-help" data-tip="${PIN_HELP}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
     </div>`;
@@ -1476,6 +1524,7 @@ function renderPanel() {
     const id = b.getAttribute("aria-controls").slice(4), d = $(b.getAttribute("aria-controls"));
     d.classList.toggle("hidden", !open); b.setAttribute("aria-expanded", String(open));
     open ? state.openInfo.add(id) : state.openInfo.delete(id);
+    if (open && $(`pchart-${id}`)) drawTrend(D[id], varById(id), `pchart-${id}`);   // drawn once visible, so it gets its real width
   };
   p.querySelectorAll(".info").forEach((b) => {
     b.onclick = () => openInfo(b, b.getAttribute("aria-expanded") !== "true");

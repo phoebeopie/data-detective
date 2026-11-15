@@ -432,6 +432,34 @@ function openRegion(id, viaKeyboard) {
   updateMarks(); renderPanel(); updatePlant();
   if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
+// statistics for one clue at one site (same results and wording as the first version's region file)
+function statsBlock(reg, v) {
+  const D = DATA[reg.id], d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality, up = mk.senSlopePerDecade > 0, R = D.rules;
+  const cc = CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id];
+  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
+  return `<div>
+      <div class="def-h">Seasons removed — is there a trend?</div>
+      <div class="chart" id="pchart-${v.id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
+      <p class="src">Monthly difference from normal (${v.units}), ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend${q ? ` · ${q.points_used ? q.points_used + " grid points · " : ""}${q.months_total - q.months_missing}/${q.months_total} months${q.months_missing ? " (gaps left empty)" : ""}${q.values_removed ? ` · ${q.values_removed} impossible values removed` : ""}` : ""}.</p>
+    </div>
+    <div class="finding">
+      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
+      <div><strong>${trendWord(d)}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
+    </div>
+    <div class="tests">
+      <div class="tag"><h5>Mann-Kendall · Sen's slope</h5><dl>
+        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
+        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
+        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
+      <div class="tag"><h5>Straight line · t-test</h5><dl>
+        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
+        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
+        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
+    </div>
+    ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
+    ${myRules.length ? `<div><div class="def-h">Stress signals that use this clue (years fired, ${FIRST_YEAR}–${LAST_YEAR})</div><div class="chips">${myRules.map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length} of ${YEARS.length}</span>`).join("")}</div></div>` : ""}`;
+}
 function closePanel() {
   $("dossier").classList.add("hidden");
   const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
@@ -450,6 +478,7 @@ function renderPanel() {
       <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
       <div class="def hidden" id="def-${v.id}">
         <p>${v.def.split(/(?<=\.)\s/)[0]} <span class="src">${v.id === "ndvi" ? `<a href="${ds.url}" target="_blank" rel="noopener">MOD13A3 dataset</a>` : `<a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni glossary: ${shortName(v)}</a>`}</span></p>
+        ${missing ? "" : statsBlock(reg, v)}
       </div>
       ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}" aria-describedby="pin-help" data-tip="${PIN_HELP}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
     </div>`;
@@ -472,6 +501,7 @@ function renderPanel() {
     const id = b.getAttribute("aria-controls").slice(4), d = $(b.getAttribute("aria-controls"));
     d.classList.toggle("hidden", !open); b.setAttribute("aria-expanded", String(open));
     open ? state.openInfo.add(id) : state.openInfo.delete(id);
+    if (open && $(`pchart-${id}`)) drawTrend(D[id], varById(id), `pchart-${id}`);   // drawn once visible, so it gets its real width
   };
   p.querySelectorAll(".info").forEach((b) => {
     b.onclick = () => openInfo(b, b.getAttribute("aria-expanded") !== "true");

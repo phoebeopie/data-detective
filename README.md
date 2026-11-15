@@ -11,14 +11,13 @@ You have one Scots pine seed. Examine NASA climate records for six regions, incl
 ## How the game works
 
 1. **Opening.** The detective is hired to find the best place to plant a tree.
-2. **Confidential dispatch.** The case file introduces Scots pine (*Pinus sylvestris*) on a specimen card with a species guide and its sources. It also explains every warning sign the game checks (the T and W rules below).
+2. **Confidential dispatch.** The case file introduces Scots pine (*Pinus sylvestris*) on a specimen card with a species guide and its sources. The **The warning signs we check** button opens an explanation of every T and W rule (see below).
 3. **Evidence board.** A full-screen map with six pins. Each pin opens an evidence file showing all eight variables for that site, plus how it ranks against the other five.
    - **Values shown:** the 2000–2004 baseline (the five years before planting).
-   - **The ⓘ button** on each variable gives a one-sentence definition, with a link to the variable's entry in the Giovanni glossary (or the MODIS dataset, for greenness).
+   - **The ⓘ button** on each variable gives a one-line definition (linked to the Giovanni glossary entry, or the MODIS dataset for greenness), then the trend chart with the seasons removed and the statistical tests: Mann-Kendall + Sen's slope, the straight-line t-test, and any cross-check notes.
    - **Your clue:** you can pin one variable as the clue you trust most. Hovering over **Pin as my clue** explains what pinning does.
-   - **Trend charts and statistical tests** appear in the verdict.
    - **Planting:** selecting any site enables **Plant your seed!**
-4. **Replay 2005–2024.** The simulated tree grows in the centre, with Play, Pause and a year slider. The eight variables are charted on either side, four on the left and four on the right, each showing that year's exact value. The tree, every chart cursor and a year log of the research stress signals that fired all move together.
+4. **Replay 2005–2024.** The simulated tree grows in the centre, with Play, Pause and a year slider. The eight variables are charted on either side, four on the left and four on the right, each showing that year's exact value. The tree, every chart cursor and a year log of the research stress signals that fired all move together. On a laptop or desktop screen, the whole replay fits without scrolling.
 5. **Verdict: "What happened?"** It includes:
    - **The outcome** for your simulated pine.
    - **The clearest trends at your site,** with direction, rate, units and years, and significance explained in plain language.
