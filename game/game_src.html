@@ -277,6 +277,10 @@
   .pinclue { font: 700 .7rem var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1.5px solid var(--rule); background: #fff; border-radius: var(--r-pill); padding: 4px 12px; color: var(--ink-soft); min-height: 32px; }
   .pinclue:hover { border-color: var(--ink); color: var(--ink); }
   .pinclue[aria-pressed="true"] { background: var(--lime); border-color: var(--ink); color: var(--ink); }
+  .pinclue { position: relative; cursor: help; }
+  .pinclue[data-tip]::after { content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; width: 250px; display: none;
+    background: var(--ink); color: #fff; font: 500 .76rem/1.4 var(--sans); letter-spacing: 0; text-transform: none; text-align: left; padding: 8px 10px; border-radius: var(--r-sm); box-shadow: 0 6px 16px rgba(27,33,64,.25); pointer-events: none; }
+  .pinclue[data-tip]:hover::after, .pinclue[data-tip]:focus-visible::after { display: block; }
   .panel-foot { padding: var(--s3) var(--s4); border-top: 1.5px dashed var(--rule); }
   .plant-dock { position: absolute; z-index: 20; right: var(--s4); bottom: var(--s4); display: flex; flex-direction: column; align-items: flex-end; gap: var(--s2); }
   .plant-dock .hint { font: 700 .72rem var(--mono); letter-spacing: .06em; background: rgba(255,255,255,.96); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 12px; color: var(--ink); }
@@ -298,8 +302,19 @@
   }
 
   /* ---------- 05 · replay ---------- */
-  .replay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--s5); margin-top: var(--s6); align-items: start; }
-  @media (max-width: 960px) { .replay { grid-template-columns: 1fr; } }
+  .replay3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); grid-template-areas: "l c r"; gap: var(--s4); margin-top: var(--s6); align-items: start; }
+  .replay3 .side-l { grid-area: l; } .replay3 .center { grid-area: c; } .replay3 .side-r { grid-area: r; }
+  .side { display: flex; flex-direction: column; gap: var(--s3); }
+  @media (max-width: 1100px) { .replay3 { grid-template-columns: 1fr 1fr; grid-template-areas: "c c" "l r"; } }
+  @media (max-width: 640px) { .replay3 { grid-template-columns: 1fr; grid-template-areas: "c" "l" "r"; } }
+  .mini { background: var(--paper); border: 1.5px solid var(--rule); border-radius: var(--r-md); padding: var(--s2) var(--s3); box-shadow: 0 1px 0 #e9e2cc; }
+  .mini.is-clue { border-color: var(--ink); box-shadow: inset 4px 0 0 var(--lime-deep), 2px 2px 0 var(--ink); }
+  .mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+  .mini-name { font-weight: 700; font-size: .86rem; }
+  .mini-val { font: .74rem var(--mono); color: var(--ink-soft); white-space: nowrap; } .mini-val b { color: var(--ink); }
+  .mini-chart { height: 118px; }
+  .mini-na { font-size: .8rem; color: var(--muted-text); padding: var(--s4) 0; }
+  .year-log { margin-top: var(--s4); }
   .scene { position: relative; height: 420px; border-radius: var(--r-lg); overflow: hidden; border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
     background-color: #e6edfb; background-image: radial-gradient(rgba(27,33,64,.07) 1px, transparent 1.2px), linear-gradient(#dbe4fa 0%, #eef2fc 55%, #fbf9f1 100%);
     background-size: 14px 14px, 100% 100%; }
@@ -549,8 +564,9 @@
         <h2 class="display" id="replay-title">Twenty years in …</h2>
         <p class="lead" id="replay-sub"></p>
       </div>
-      <div class="replay">
-        <div>
+      <div class="replay3">
+        <div class="side side-l" id="charts-left" aria-label="Key clues"></div>
+        <div class="center">
           <div class="scene" id="scene">
             <svg class="sky-hills" viewBox="0 0 600 430" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
               <g fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -587,18 +603,14 @@
             <div class="meter"><div class="lbl"><span>Growth · simulated</span><span id="r-gp">0%</span></div><div class="bar"><i id="r-gbar" class="growth"></i></div></div>
           </div>
           <p class="src sim-note" id="sim-note"></p>
+          <div class="year-log">
+            <div class="timeline" id="timeline" aria-hidden="true"></div>
+            <div class="tl-years" aria-hidden="true"><span>2005</span><span>2014</span><span>2024</span></div>
+            <div class="tl-legend" aria-hidden="true"><span><i class="k-ok"></i>no stress signal</span><span><i class="k-meh"></i>weak (tier C)</span><span><i class="k-bad"></i>strong (tier A/B)</span></div>
+            <p class="signals" id="signals" aria-live="polite"></p>
+          </div>
         </div>
-        <div class="sheet dots log">
-          <h3 id="chart-title">The evidence, year by year</h3>
-          <div class="varpick"><label class="label" for="r-var">Plot</label><select id="r-var"></select></div>
-          <div class="chart" id="r-chart"></div>
-          <p class="src" id="r-chart-src"></p>
-          <div class="timeline" id="timeline" aria-hidden="true"></div>
-          <div class="tl-years" aria-hidden="true"><span>2005</span><span>2014</span><span>2024</span></div>
-          <div class="tl-legend" aria-hidden="true"><span><i class="k-ok"></i>no stress signal</span><span><i class="k-meh"></i>weak (tier C)</span><span><i class="k-bad"></i>strong (tier A/B)</span></div>
-          <p class="signals" id="signals" aria-live="polite"></p>
-          <table class="readings" id="readout"></table>
-        </div>
+        <div class="side side-r" id="charts-right" aria-label="Supporting clues"></div>
       </div>
       <div class="see-next"><button class="btn" id="to-verdict">See what happened <span class="arrow" aria-hidden="true">→</span></button></div>
     </div>

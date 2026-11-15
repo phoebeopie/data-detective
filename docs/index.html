@@ -277,6 +277,10 @@
   .pinclue { font: 700 .7rem var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1.5px solid var(--rule); background: #fff; border-radius: var(--r-pill); padding: 4px 12px; color: var(--ink-soft); min-height: 32px; }
   .pinclue:hover { border-color: var(--ink); color: var(--ink); }
   .pinclue[aria-pressed="true"] { background: var(--lime); border-color: var(--ink); color: var(--ink); }
+  .pinclue { position: relative; cursor: help; }
+  .pinclue[data-tip]::after { content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; width: 250px; display: none;
+    background: var(--ink); color: #fff; font: 500 .76rem/1.4 var(--sans); letter-spacing: 0; text-transform: none; text-align: left; padding: 8px 10px; border-radius: var(--r-sm); box-shadow: 0 6px 16px rgba(27,33,64,.25); pointer-events: none; }
+  .pinclue[data-tip]:hover::after, .pinclue[data-tip]:focus-visible::after { display: block; }
   .panel-foot { padding: var(--s3) var(--s4); border-top: 1.5px dashed var(--rule); }
   .plant-dock { position: absolute; z-index: 20; right: var(--s4); bottom: var(--s4); display: flex; flex-direction: column; align-items: flex-end; gap: var(--s2); }
   .plant-dock .hint { font: 700 .72rem var(--mono); letter-spacing: .06em; background: rgba(255,255,255,.96); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 12px; color: var(--ink); }
@@ -298,8 +302,19 @@
   }
 
   /* ---------- 05 · replay ---------- */
-  .replay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--s5); margin-top: var(--s6); align-items: start; }
-  @media (max-width: 960px) { .replay { grid-template-columns: 1fr; } }
+  .replay3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); grid-template-areas: "l c r"; gap: var(--s4); margin-top: var(--s6); align-items: start; }
+  .replay3 .side-l { grid-area: l; } .replay3 .center { grid-area: c; } .replay3 .side-r { grid-area: r; }
+  .side { display: flex; flex-direction: column; gap: var(--s3); }
+  @media (max-width: 1100px) { .replay3 { grid-template-columns: 1fr 1fr; grid-template-areas: "c c" "l r"; } }
+  @media (max-width: 640px) { .replay3 { grid-template-columns: 1fr; grid-template-areas: "c" "l" "r"; } }
+  .mini { background: var(--paper); border: 1.5px solid var(--rule); border-radius: var(--r-md); padding: var(--s2) var(--s3); box-shadow: 0 1px 0 #e9e2cc; }
+  .mini.is-clue { border-color: var(--ink); box-shadow: inset 4px 0 0 var(--lime-deep), 2px 2px 0 var(--ink); }
+  .mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+  .mini-name { font-weight: 700; font-size: .86rem; }
+  .mini-val { font: .74rem var(--mono); color: var(--ink-soft); white-space: nowrap; } .mini-val b { color: var(--ink); }
+  .mini-chart { height: 118px; }
+  .mini-na { font-size: .8rem; color: var(--muted-text); padding: var(--s4) 0; }
+  .year-log { margin-top: var(--s4); }
   .scene { position: relative; height: 420px; border-radius: var(--r-lg); overflow: hidden; border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
     background-color: #e6edfb; background-image: radial-gradient(rgba(27,33,64,.07) 1px, transparent 1.2px), linear-gradient(#dbe4fa 0%, #eef2fc 55%, #fbf9f1 100%);
     background-size: 14px 14px, 100% 100%; }
@@ -549,8 +564,9 @@
         <h2 class="display" id="replay-title">Twenty years in …</h2>
         <p class="lead" id="replay-sub"></p>
       </div>
-      <div class="replay">
-        <div>
+      <div class="replay3">
+        <div class="side side-l" id="charts-left" aria-label="Key clues"></div>
+        <div class="center">
           <div class="scene" id="scene">
             <svg class="sky-hills" viewBox="0 0 600 430" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
               <g fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -587,18 +603,14 @@
             <div class="meter"><div class="lbl"><span>Growth · simulated</span><span id="r-gp">0%</span></div><div class="bar"><i id="r-gbar" class="growth"></i></div></div>
           </div>
           <p class="src sim-note" id="sim-note"></p>
+          <div class="year-log">
+            <div class="timeline" id="timeline" aria-hidden="true"></div>
+            <div class="tl-years" aria-hidden="true"><span>2005</span><span>2014</span><span>2024</span></div>
+            <div class="tl-legend" aria-hidden="true"><span><i class="k-ok"></i>no stress signal</span><span><i class="k-meh"></i>weak (tier C)</span><span><i class="k-bad"></i>strong (tier A/B)</span></div>
+            <p class="signals" id="signals" aria-live="polite"></p>
+          </div>
         </div>
-        <div class="sheet dots log">
-          <h3 id="chart-title">The evidence, year by year</h3>
-          <div class="varpick"><label class="label" for="r-var">Plot</label><select id="r-var"></select></div>
-          <div class="chart" id="r-chart"></div>
-          <p class="src" id="r-chart-src"></p>
-          <div class="timeline" id="timeline" aria-hidden="true"></div>
-          <div class="tl-years" aria-hidden="true"><span>2005</span><span>2014</span><span>2024</span></div>
-          <div class="tl-legend" aria-hidden="true"><span><i class="k-ok"></i>no stress signal</span><span><i class="k-meh"></i>weak (tier C)</span><span><i class="k-bad"></i>strong (tier A/B)</span></div>
-          <p class="signals" id="signals" aria-live="polite"></p>
-          <table class="readings" id="readout"></table>
-        </div>
+        <div class="side side-r" id="charts-right" aria-label="Supporting clues"></div>
       </div>
       <div class="see-next"><button class="btn" id="to-verdict">See what happened <span class="arrow" aria-hidden="true">→</span></button></div>
     </div>
@@ -1274,6 +1286,7 @@ function rankPhrase(regId, v) {
   if (k < 0 || n < 2) return "";
   return k === 0 ? `${cap(hi)} of the ${n} sites` : k === n - 1 ? `${cap(lo)} of the ${n} sites` : `${ord(k + 1)} ${hi} of ${n}`;
 }
+const PIN_HELP = "Pin this as the clue you trust most when choosing a site (optional, one clue at a time). It stays highlighted in the replay, and the verdict tells you whether it matched what actually stressed your tree.";
 const valTxt = (x, v) => (fin(x) ? `${fmt(x)} ${v.units}` : "no data");
 const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -1423,34 +1436,6 @@ function openRegion(id, viaKeyboard) {
   updateMarks(); renderPanel(); updatePlant();
   if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
-// statistics for one clue at one site (same results and wording as the first version's region file)
-function statsBlock(reg, v) {
-  const D = DATA[reg.id], d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality, up = mk.senSlopePerDecade > 0, R = D.rules;
-  const cc = CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id];
-  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
-  return `<div>
-      <div class="def-h">Seasons removed — is there a trend?</div>
-      <div class="chart" id="pchart-${v.id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
-      <p class="src">Monthly difference from normal (${v.units}), ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend${q ? ` · ${q.points_used ? q.points_used + " grid points · " : ""}${q.months_total - q.months_missing}/${q.months_total} months${q.months_missing ? " (gaps left empty)" : ""}${q.values_removed ? ` · ${q.values_removed} impossible values removed` : ""}` : ""}.</p>
-    </div>
-    <div class="finding">
-      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
-      <div><strong>${trendWord(d)}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
-    </div>
-    <div class="tests">
-      <div class="tag"><h5>Mann-Kendall · Sen's slope</h5><dl>
-        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
-        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
-        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
-      <div class="tag"><h5>Straight line · t-test</h5><dl>
-        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
-        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
-        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
-    </div>
-    ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
-    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
-    ${myRules.length ? `<div><div class="def-h">Stress signals that use this clue (years fired, ${FIRST_YEAR}–${LAST_YEAR})</div><div class="chips">${myRules.map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length} of ${YEARS.length}</span>`).join("")}</div></div>` : ""}`;
-}
 function closePanel() {
   $("dossier").classList.add("hidden");
   const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
@@ -1468,12 +1453,9 @@ function renderPanel() {
       <div class="val">${missing ? "Unavailable" : `${fmt(b)} <small>${v.units}</small>`}</div>
       <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
       <div class="def hidden" id="def-${v.id}">
-        <div><p>${v.def}</p>
-        <p>Dataset: <a href="${ds.url}" target="_blank" rel="noopener">${ds.name}</a> · ${ds.via} · variable <code>${shortName(v)}</code>.
-        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p></div>
-        ${missing ? "" : statsBlock(reg, v)}
+        <p>${v.def.split(/(?<=\.)\s/)[0]} <span class="src">${v.id === "ndvi" ? `<a href="${ds.url}" target="_blank" rel="noopener">MOD13A3 dataset</a>` : `<a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni glossary: ${shortName(v)}</a>`}</span></p>
       </div>
-      ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
+      ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}" aria-describedby="pin-help" data-tip="${PIN_HELP}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
     </div>`;
   }).join("");
   p.innerHTML = `
@@ -1488,13 +1470,12 @@ function renderPanel() {
       <p class="src">Each value is the average month of ${BASE_FROM}–${BASE_TO}, averaged over the area ${lat(reg.bbox[1])}–${lat(reg.bbox[3])}, ${lon(reg.bbox[0])}–${lon(reg.bbox[2])}. Records run monthly ${FIRST_YEAR}–${LAST_YEAR}.</p>
       ${rows}
       ${!reg.playable ? `<p class="note note-bad">Missing records — this region can't be planted.</p>` : ""}
-      <p class="src">Pin the one clue you trust most (optional). Charts, stress signals and rankings come in the replay and the verdict.</p>
+      <p class="src" id="pin-help">${PIN_HELP}</p>
     </div>`;
   const openInfo = (b, open) => {
     const id = b.getAttribute("aria-controls").slice(4), d = $(b.getAttribute("aria-controls"));
     d.classList.toggle("hidden", !open); b.setAttribute("aria-expanded", String(open));
     open ? state.openInfo.add(id) : state.openInfo.delete(id);
-    if (open && $(`pchart-${id}`)) drawTrend(D[id], varById(id), `pchart-${id}`);   // drawn once visible, so it gets its real width
   };
   p.querySelectorAll(".info").forEach((b) => {
     b.onclick = () => openInfo(b, b.getAttribute("aria-expanded") !== "true");
@@ -1569,8 +1550,12 @@ function startReplay(regionId, clueId) {
   $("replay-sub").textContent = `You planted your seed in ${reg.name}${clueId ? `, trusting the ${varById(clueId).name.toLowerCase()} clue` : ""}. Press Play, or drag the year slider.`;
   $("r-place").textContent = reg.name;
   $("sim-note").innerHTML = `The tree, its canopy condition and its growth are <b>simulated</b> by the game from the stress signals in the real records — not measured, and not a survival forecast.`;
-  $("r-var").innerHTML = VARS.map((v) => `<option value="${v.id}" ${DATA[regionId][v.id] ? "" : "disabled"}>${v.name}${DATA[regionId][v.id] ? "" : " — unavailable"}${v.id === clueId ? " · your clue" : ""}</option>`).join("");
-  $("r-var").value = RP.varId;
+  const mini = (v) => `<div class="mini ${v.id === clueId ? "is-clue" : ""}">
+      <div class="mini-head"><span class="mini-name">${v.name}${v.id === clueId ? " 📌" : ""}</span><span class="mini-val" id="mv-${v.id}"></span></div>
+      ${DATA[regionId][v.id] ? `<div class="mini-chart" id="rc-${v.id}" role="img" aria-label="${v.name}, annual values ${REPLAY_FROM}–${REPLAY_TO}"></div>` : `<p class="mini-na">Unavailable — no records on file for this region.</p>`}
+      <p class="src">${v.units} · dashed = 2000–04 average${v.id === "ndvi" ? " · regional vegetation reading (all plants)" : ""}${v.lowConfidence ? " · low confidence" : ""}</p></div>`;
+  $("charts-left").innerHTML = VARS.slice(0, 4).map(mini).join("");
+  $("charts-right").innerHTML = VARS.slice(4).map(mini).join("");
   $("timeline").innerHTML = RP.r.years.map(() => "<span></span>").join("");
   $("to-verdict").classList.remove("ready");
   setYear(0, true);
@@ -1601,42 +1586,28 @@ function setYear(k, force) {
   });
   $("signals").innerHTML = !yr.on.length ? `<b>${yr.y}:</b> no stress signal from the Scots pine research.`
     : `<b>${yr.y}:</b> ${yr.on.map((x) => `${tierTag(x.tier, false)}<b>${x.id} ${x.name}</b>`).join(" · ")} <span class="src">${srcLinks([...new Set(yr.on.flatMap((x) => x.src))])}</span>`;
-  // exact annual readings for this year
-  $("readout").innerHTML = `<caption>Readings in ${yr.y} · ${reg.name.split(",")[0]}</caption>
-    <tr><th>Clue</th><th class="v">${yr.y}</th><th class="v">2000–04 avg</th></tr>` +
-    VARS.map((x) => {
-      const val = yearVal(RP.regionId, x.id, yr.y), base = baseline(RP.regionId, x.id), have = !!DATA[RP.regionId][x.id];
-      return `<tr class="${x.id === RP.varId ? "cur" : ""}"><td>${x.name}${x.id === RP.clueId ? " 📌" : ""}${x.id === "ndvi" ? `<span class="tagline">Regional vegetation reading (satellite, all plants)</span>` : ""}</td>
-        <td class="v">${!have ? `<span class="gap">unavailable</span>` : fin(val) ? `${fmt(val)} <small>${x.units}</small>` : `<span class="gap">gap (missing months)</span>`}</td>
-        <td class="v">${fin(base) ? fmt(base) : "—"}</td></tr>`;
-    }).join("");
-  drawReplayChart();
+  drawReplayCharts();
   if (k === r.years.length - 1) $("to-verdict").classList.add("ready");
 }
-function drawReplayChart() {
-  const v = varById(RP.varId), ys = YEARS.filter((y) => y >= REPLAY_FROM), cur = RP.r.years[RP.k].y;
-  const vals = ys.map((y) => { const x = yearVal(RP.regionId, v.id, y); return fin(x) ? x : null; });
-  const base = baseline(RP.regionId, v.id), cv = yearVal(RP.regionId, v.id, cur);
-  const ink = "#1b2140";
-  const layout = {
-    margin: { l: 52, r: 10, t: 10, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", showlegend: false, hovermode: "closest",
-    font: { family: "DM Sans, system-ui, sans-serif", size: 11, color: "#4c5272" },
-    hoverlabel: { bgcolor: ink, bordercolor: ink, font: { color: "#fff" } },
-    xaxis: { range: [REPLAY_FROM - .5, REPLAY_TO + .5], dtick: 3, showgrid: false, linecolor: ink, ticks: "outside", tickcolor: ink, tickfont: { family: "Space Mono, monospace", size: 10 } },
-    yaxis: { gridcolor: "#e9e4d4", zeroline: false, title: { text: v.units, font: { size: 11 } }, tickfont: { family: "Space Mono, monospace", size: 10 } },
-    shapes: [{ type: "line", x0: cur, x1: cur, yref: "paper", y0: 0, y1: 1, line: { color: "#2443d6", width: 2 } }],
-    annotations: fin(base) ? [{ xref: "paper", x: 1, y: base, xanchor: "right", yanchor: "bottom", text: "2000–04 average", showarrow: false, font: { size: 10, color: "#62677d" } }] : [],
-  };
-  if (fin(base)) layout.shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: base, y1: base, line: { color: "#8a8fa6", width: 1.2, dash: "dash" } });
-  const traces = [
-    { x: ys, y: vals, type: "scatter", mode: "lines+markers", connectgaps: false, line: { color: "#2443d6", width: 2 }, marker: { size: 6, color: "#fff", line: { color: "#2443d6", width: 1.5 } },
-      hovertemplate: `%{x}: %{y:.3g} ${v.units}<extra></extra>` },
-    { x: [cur], y: [fin(cv) ? cv : null], type: "scatter", mode: "markers", marker: { size: 13, color: "#b5ec7a", line: { color: ink, width: 2 } }, hoverinfo: "skip" },
-  ];
-  Plotly.react("r-chart", traces, layout, { displayModeBar: false, responsive: true });
-  $("chart-title").textContent = `${v.name}, year by year`;
-  const ds = dsOf(v), gaps = vals.filter((x) => x === null).length;
-  $("r-chart-src").innerHTML = `Annual average of monthly ${shortName(v)} · ${ds.name} · area average${gaps ? ` · ${gaps} year${gaps > 1 ? "s" : ""} with too many missing months shown as gaps` : ""}${v.id === "ndvi" ? " · regional vegetation reading: all plants, not only pines" : ""}${v.lowConfidence ? " · low-confidence model variable" : ""}.`;
+function drawReplayCharts() {
+  const ys = YEARS.filter((y) => y >= REPLAY_FROM), cur = RP.r.years[RP.k].y, ink = "#1b2140";
+  for (const v of VARS) {
+    const have = !!DATA[RP.regionId][v.id], cv = yearVal(RP.regionId, v.id, cur);
+    $(`mv-${v.id}`).innerHTML = !have ? "unavailable" : fin(cv) ? `${cur}: <b>${fmt(cv)}</b> ${v.units}` : `${cur}: gap`;
+    if (!have) continue;
+    const vals = ys.map((y) => { const x = yearVal(RP.regionId, v.id, y); return fin(x) ? x : null; }), base = baseline(RP.regionId, v.id);
+    const shapes = [{ type: "line", x0: cur, x1: cur, yref: "paper", y0: 0, y1: 1, line: { color: "#2443d6", width: 2 } }];
+    if (fin(base)) shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: base, y1: base, line: { color: "#8a8fa6", width: 1, dash: "dash" } });
+    Plotly.react(`rc-${v.id}`, [
+      { x: ys, y: vals, type: "scatter", mode: "lines+markers", connectgaps: false, line: { color: "#2443d6", width: 1.6 }, marker: { size: 4, color: "#fff", line: { color: "#2443d6", width: 1.2 } }, hovertemplate: `%{x}: %{y:.3g} ${v.units}<extra></extra>` },
+      { x: [cur], y: [fin(cv) ? cv : null], type: "scatter", mode: "markers", marker: { size: 10, color: "#b5ec7a", line: { color: ink, width: 2 } }, hoverinfo: "skip" },
+    ], {
+      margin: { l: 38, r: 6, t: 4, b: 20 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", showlegend: false, hovermode: "closest",
+      font: { family: "DM Sans, system-ui, sans-serif", size: 9, color: "#4c5272" }, hoverlabel: { bgcolor: ink, font: { color: "#fff" } },
+      xaxis: { range: [REPLAY_FROM - .5, REPLAY_TO + .5], tickvals: [2005, 2010, 2015, 2020, 2024], showgrid: false, linecolor: ink, tickfont: { family: "Space Mono, monospace", size: 9 } },
+      yaxis: { gridcolor: "#e9e4d4", zeroline: false, nticks: 4, tickfont: { family: "Space Mono, monospace", size: 9 } }, shapes,
+    }, { displayModeBar: false, responsive: true, staticPlot: false });
+  }
 }
 function pause() { clearInterval(RP.timer); RP.timer = null; const b = $("play"); b.innerHTML = "▶ Play"; b.setAttribute("aria-pressed", "false"); }
 function play() {
@@ -1646,7 +1617,6 @@ function play() {
 }
 $("play").onclick = () => (RP.timer ? pause() : play());
 $("scrub").oninput = (e) => { pause(); setYear(+e.target.value - REPLAY_FROM); };
-$("r-var").onchange = (e) => { RP.varId = e.target.value; setYear(RP.k, true); };
 $("to-verdict").onclick = () => { pause(); show("verdict"); renderVerdict(); };   // show first: charts need their on-screen width
 
 /* ======================================================================
