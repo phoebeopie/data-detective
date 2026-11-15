@@ -92,8 +92,11 @@
   /* ---------- header: magnifying glass + wordmark only ---------- */
   header { display: flex; align-items: center; height: var(--header-h); padding: 0 clamp(16px, 2.5vw, 32px);
     border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); position: sticky; top: 0; z-index: 40; }
-  .logo-tile { width: 40px; height: 40px; border-radius: var(--r-md); background: var(--blue-soft); border: 1px solid #cdd6ff; display: grid; place-items: center; flex: none; }
-  .brand { display: flex; align-items: center; gap: var(--s3); font-weight: 700; font-size: 1.3rem; letter-spacing: -.01em; background: none; border: 0; padding: 0; white-space: nowrap; }
+  .brand { display: flex; align-items: center; gap: var(--s2); background: none; border: 0; padding: 0; white-space: nowrap; border-radius: var(--r-sm); }
+  .brand-icon { height: 44px; width: auto; transform: rotate(-6deg); transition: transform .2s var(--ease-out); }
+  .brand:hover .brand-icon { transform: rotate(-14deg) scale(1.05); }
+  .wordmark { font: italic 400 2rem/1 var(--serif); letter-spacing: -.01em; color: var(--ink); padding-top: 2px; }
+  @media (max-width: 420px) { .brand-icon { height: 36px; } .wordmark { font-size: 1.7rem; } }
 
   main { min-height: calc(100vh - var(--header-h)); }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px) var(--s8); }
@@ -171,8 +174,26 @@
   .pinned .conditions b { color: var(--ink); }
   .pinned .conditions ul { margin: var(--s2) 0 var(--s2); padding-left: 18px; }
   .pinned .conditions li { margin: 2px 0; }
-  .guide { text-align: left; margin-top: var(--s3); }
-  .guide .guide-txt { font-size: .85rem; color: var(--ink-soft); margin-top: var(--s3); }
+  .guide { text-align: left; }
+  .guide h4, .rules-sheet h4 { font: 700 .7rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--blue); margin: var(--s3) 0 var(--s1); }
+  .guide ul { margin: 0; padding-left: 18px; font-size: .9rem; color: var(--ink-soft); }
+  .rules-sheet { margin-top: var(--s7); }
+  .rules-title { font: var(--h-type); margin: var(--s2) 0 var(--s3); }
+  .rules-intro { color: var(--ink-soft); max-width: 820px; }
+  .rules-intro + .rules-intro { margin-top: var(--s2); }
+  .tier-key { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: var(--s4) 0; font-size: .9rem; color: var(--ink-soft); }
+  .tier-key > span { display: inline-flex; align-items: center; }
+  .rule-groups { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s5); margin-top: var(--s4); }
+  @media (max-width: 860px) { .rule-groups { grid-template-columns: 1fr; } }
+  .rule-groups h4 { font-size: .78rem; margin-top: 0; }
+  .rcard { background: #fff; border: 1.5px solid var(--rule); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s3); }
+  .rcard .rc-top { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
+  .rcard .rc-top b { font-size: 1.02rem; }
+  .rcard dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--s1) var(--s3); margin: var(--s2) 0 0; font-size: .88rem; }
+  .rcard dt { font: 700 .66rem/1.9 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .rcard dd { margin: 0; color: var(--ink-soft); }
+  .rcard dd.fires { color: var(--ink); font-weight: 600; }
+  @media (max-width: 480px) { .rcard dl { grid-template-columns: 1fr; gap: 0; } .rcard dd { margin-bottom: var(--s2); } }
   .pill { display: inline-block; font-size: .78rem; padding: 2px 10px; border-radius: var(--r-pill); margin: 2px; background: #eef8e2; color: #2f5a10; border: 1px solid #cfe9b0; }
   .pill.bad { background: #fdeeea; color: #8a2c1d; border-color: #f2cdc4; }
 
@@ -215,7 +236,7 @@
     max-width: 260px; z-index: 60; line-height: 1.45; box-shadow: 0 6px 16px rgba(27,33,64,.25); }
 
   /* evidence panel: right-hand card on desktop, bottom sheet on phones */
-  .panel { position: absolute; z-index: 10; top: var(--s4); right: var(--s4); bottom: 132px; width: min(440px, 42vw); display: flex; flex-direction: column;
+  .panel { position: absolute; z-index: 10; top: var(--s4); right: var(--s4); bottom: 132px; width: min(480px, 44vw); display: flex; flex-direction: column;
     background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-lg); box-shadow: 5px 5px 0 var(--ink); overflow: hidden;
     animation: panel-in .3s var(--ease-out); }
   @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
@@ -234,6 +255,21 @@
   .evrow .tools { grid-column: 1 / -1; display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-top: var(--s1); }
   .evrow .def { grid-column: 1 / -1; font-size: .8rem; color: var(--ink-soft); background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--s2) var(--s3); margin-top: var(--s1); }
   .evrow .def p + p { margin-top: var(--s1); }
+  .evrow .def { display: flex; flex-direction: column; gap: var(--s3); }
+  .evrow .def .def-h { font: 700 .7rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--blue); }
+  .evrow .def .chart { height: 200px; margin-top: calc(-1 * var(--s2)); }
+  .finding { display: flex; gap: var(--s3); align-items: flex-start; border: 2px solid var(--ink); border-radius: var(--r-md); padding: var(--s3); background: #fff; box-shadow: 3px 3px 0 var(--ink); }
+  .finding .stamp { flex: none; margin-top: var(--s1); font-size: .72rem; }
+  .finding strong { display: block; font: italic 1.35rem/1.1 var(--serif); color: var(--ink); margin-bottom: var(--s1); }
+  .finding p { font-size: .84rem; }
+  .tests { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s2); }
+  .tag { border: 1.5px dashed #b9b4a3; border-radius: var(--r-md); padding: var(--s2) var(--s3); background: var(--card); }
+  .tag h5 { margin: 0 0 var(--s1); font: 700 .64rem var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
+  .tag dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px var(--s2); font-size: .8rem; }
+  .tag dt { color: var(--ink-soft); } .tag dd { margin: 0; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .def .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .def .chip { display: inline-flex; align-items: center; font-size: .78rem; border: 1px solid #d6d1c0; border-radius: var(--r-pill); padding: 2px 10px 2px 3px; color: var(--muted-text); background: #fff; }
+  .def .chip.on { color: var(--ink); border-color: var(--ink); font-weight: 600; }
   .evrow.missing .val { color: var(--muted-text); font-weight: 400; font-size: .85rem; }
   .evrow.pinned-row { background: linear-gradient(90deg, rgba(181,236,122,.35), transparent 70%); margin: 0 calc(-1 * var(--s4)); padding-left: var(--s4); padding-right: var(--s4); }
   .info { width: 24px; height: 24px; padding: 0; border-radius: 50%; font: italic 700 .85rem/1 var(--serif); border: 1.5px solid var(--ink-soft); background: #fff; color: var(--ink-soft); flex: none; }
@@ -416,10 +452,8 @@
 
 <header>
   <button class="brand" id="home-link" aria-label="D² Detective — back to the start">
-    <span class="logo-tile" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2443d6" stroke-width="2.6" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6"/></svg>
-    </span>
-    D² Detective
+    <img class="brand-icon" src="assets/magnifier.png" alt="" width="73" height="44" />
+    <span class="wordmark">D² Detective</span>
   </button>
 </header>
 
@@ -464,10 +498,16 @@
               <img src="assets/scots-pine.png" alt="Illustration of a Scots pine with a cone and a seed" class="pine-img" />
               <div class="rule"></div>
               <div class="conditions" id="conditions"></div>
-              <button class="linkish" id="guide-toggle" aria-expanded="false" aria-controls="guide">Species guide</button>
-              <div id="guide" class="guide hidden"></div>
+              <div class="rule"></div>
+              <div id="guide" class="guide" aria-label="Species guide"></div>
             </aside>
           </div>
+          <section class="sheet dots rules-sheet" aria-labelledby="rules-title">
+            <div class="kicker">Before you start</div>
+            <h3 class="rules-title" id="rules-title">The warning signs we check</h3>
+            <div id="rules-explained"></div>
+            <div class="corner"></div>
+          </section>
         </div>
       </div>
     </div>
@@ -1241,7 +1281,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 /* ======================================================================
    4. Navigation, opening, dispatch
    ====================================================================== */
-const state = { visited: new Set(), selected: null, clue: null, locked: null };
+const state = { visited: new Set(), selected: null, clue: null, locked: null, openInfo: new Set() };
 let map = null;
 const SCREENS = ["home", "brief", "board", "replay", "verdict"];
 function show(id) {
@@ -1276,15 +1316,26 @@ $("conditions").innerHTML = `
   <ul>${PINE.loves.map((x) => `<li>${x}</li>`).join("")}</ul>
   <p><b>What stresses it:</b> drought — especially several dry years in a row — and unusually cold late winters.</p>
   <p class="src">Sources: <a href="${SOURCES.S15.url}" target="_blank" rel="noopener" title="${SOURCES.S15.cite}">S15</a> (needs); ${srcLinks(["S3", "S4", "S5"])} (stress).</p>`;
-$("guide-toggle").onclick = () => {
-  const g = $("guide"), open = g.classList.toggle("hidden") === false;
-  $("guide-toggle").setAttribute("aria-expanded", String(open));
-  g.innerHTML = `
-    <p class="guide-txt"><b>Stress signals from the research.</b> These are warning signs measured in studies, not a pass/fail test. Each carries an evidence tier:
-      <b>A</b> = Scots pine, measured threshold · <b>B</b> = Scots pine, direction only · <b>C</b> = other species, context only.</p>
-    <ul class="rulelist">${RULES.map((r) => `<li>${tierTag(r.tier)}<b>${r.id} ${r.name}</b> — ${r.test}. <span class="src">${srcLinks(r.src)}</span></li>`).join("")}</ul>
-    <p class="src">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
-};
+$("guide").innerHTML = `
+  <h4>Species guide</h4>
+  <ul>${PINE.facts.map((x) => `<li>${x}</li>`).join("")}</ul>
+  <p class="src">Source: <a href="${SOURCES.S15.url}" target="_blank" rel="noopener" title="${SOURCES.S15.cite}">S15</a></p>`;
+const ruleCardBrief = (r) => `<div class="rcard">
+    <div class="rc-top">${tierTag(r.tier)}<b>${r.id} · ${r.name}</b></div>
+    <dl><dt>Fires when</dt><dd class="fires">${r.test}</dd>
+      <dt>Why it matters</dt><dd>${r.effect}</dd>
+      <dt>Reads</dt><dd>${r.vars.map((id) => varById(id).name.toLowerCase()).join(" and ")} records</dd>
+      <dt>Evidence</dt><dd class="src">Tier ${r.tier} (${TIER_TEXT[r.tier]}) · ${srcLinks(r.src)}</dd></dl>
+  </div>`;
+$("rules-explained").innerHTML = `
+  <p class="rules-intro">When you replay 2005–2024, the game checks every year of the NASA records against warning signs measured in published Scots pine research. A signal <b>fires</b> in a year when the records cross its threshold. <b>T</b> signals are about temperature; <b>W</b> signals are about water.</p>
+  <p class="rules-intro">These are warning signs, not a pass/fail test. Each one carries an evidence tier that says how directly it applies to Scots pine:</p>
+  <div class="tier-key">${["A", "B", "C"].map((x) => `<span>${tierTag(x)}${TIER_TEXT[x]}</span>`).join("")}</div>
+  <div class="rule-groups">
+    <div><h4>T · Temperature signals</h4>${RULES.filter((r) => r.driver === "temperature").map(ruleCardBrief).join("")}</div>
+    <div><h4>W · Water signals</h4>${RULES.filter((r) => r.driver === "water").map(ruleCardBrief).join("")}</div>
+  </div>
+  <p class="src fineprint">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
 
 /* ======================================================================
    5. Evidence board: full-screen map + evidence file
@@ -1345,7 +1396,7 @@ function renderMap() {
     const regs = REGIONS.filter((r) => ids.includes(r.id));
     const pts = regs.flatMap((r) => [proj([r.bbox[0], r.bbox[1]]), proj([r.bbox[2], r.bbox[3]]), proj([r.bbox[0], r.bbox[3]]), proj([r.bbox[2], r.bbox[1]])]);
     const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), y0 = Math.min(...pts.map((p) => p[1])) - 30, y1 = Math.max(...pts.map((p) => p[1]));
-    const L = desktop ? 40 : 20, R = desktop ? W - Math.min(470, W * .44) - 20 : W - 20, T = desktop ? 150 : 80, B = H - (desktop ? 70 : 150);
+    const L = desktop ? 40 : 20, R = desktop ? W - Math.min(510, W * .46) - 20 : W - 20, T = desktop ? 150 : 80, B = H - (desktop ? 70 : 150);
     const k = Math.min(12, padK * Math.min((R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0)));
     return d3.zoomIdentity.translate((L + R) / 2 - k * (x0 + x1) / 2, (T + B) / 2 - k * (y0 + y1) / 2).scale(k);
   };
@@ -1372,6 +1423,34 @@ function openRegion(id, viaKeyboard) {
   updateMarks(); renderPanel(); updatePlant();
   if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
+// statistics for one clue at one site (same results and wording as the first version's region file)
+function statsBlock(reg, v) {
+  const D = DATA[reg.id], d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality, up = mk.senSlopePerDecade > 0, R = D.rules;
+  const cc = CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id];
+  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
+  return `<div>
+      <div class="def-h">Seasons removed — is there a trend?</div>
+      <div class="chart" id="pchart-${v.id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
+      <p class="src">Monthly difference from normal (${v.units}), ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend${q ? ` · ${q.points_used ? q.points_used + " grid points · " : ""}${q.months_total - q.months_missing}/${q.months_total} months${q.months_missing ? " (gaps left empty)" : ""}${q.values_removed ? ` · ${q.values_removed} impossible values removed` : ""}` : ""}.</p>
+    </div>
+    <div class="finding">
+      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
+      <div><strong>${trendWord(d)}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
+    </div>
+    <div class="tests">
+      <div class="tag"><h5>Mann-Kendall · Sen's slope</h5><dl>
+        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
+        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
+        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
+      <div class="tag"><h5>Straight line · t-test</h5><dl>
+        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
+        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
+        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
+    </div>
+    ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
+    ${myRules.length ? `<div><div class="def-h">Stress signals that use this clue (years fired, ${FIRST_YEAR}–${LAST_YEAR})</div><div class="chips">${myRules.map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length} of ${YEARS.length}</span>`).join("")}</div></div>` : ""}`;
+}
 function closePanel() {
   $("dossier").classList.add("hidden");
   const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
@@ -1389,9 +1468,10 @@ function renderPanel() {
       <div class="val">${missing ? "Unavailable" : `${fmt(b)} <small>${v.units}</small>`}</div>
       <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
       <div class="def hidden" id="def-${v.id}">
-        <p>${v.def}</p>
+        <div><p>${v.def}</p>
         <p>Dataset: <a href="${ds.url}" target="_blank" rel="noopener">${ds.name}</a> · ${ds.via} · variable <code>${shortName(v)}</code>.
-        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p>
+        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p></div>
+        ${missing ? "" : statsBlock(reg, v)}
       </div>
       ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
     </div>`;
@@ -1410,9 +1490,16 @@ function renderPanel() {
       ${!reg.playable ? `<p class="note note-bad">Missing records — this region can't be planted.</p>` : ""}
       <p class="src">Pin the one clue you trust most (optional). Charts, stress signals and rankings come in the replay and the verdict.</p>
     </div>`;
-  p.querySelectorAll(".info").forEach((b) => (b.onclick = () => {
-    const d = $(b.getAttribute("aria-controls")), open = d.classList.toggle("hidden") === false; b.setAttribute("aria-expanded", String(open));
-  }));
+  const openInfo = (b, open) => {
+    const id = b.getAttribute("aria-controls").slice(4), d = $(b.getAttribute("aria-controls"));
+    d.classList.toggle("hidden", !open); b.setAttribute("aria-expanded", String(open));
+    open ? state.openInfo.add(id) : state.openInfo.delete(id);
+    if (open && $(`pchart-${id}`)) drawTrend(D[id], varById(id), `pchart-${id}`);   // drawn once visible, so it gets its real width
+  };
+  p.querySelectorAll(".info").forEach((b) => {
+    b.onclick = () => openInfo(b, b.getAttribute("aria-expanded") !== "true");
+    if (state.openInfo.has(b.getAttribute("aria-controls").slice(4))) openInfo(b, true);
+  });
   p.querySelectorAll(".pinclue").forEach((b) => (b.onclick = () => {
     state.clue = state.clue === b.dataset.var ? null : b.dataset.var;
     const keep = b.dataset.var, top = p.querySelector(".panel-body").scrollTop;

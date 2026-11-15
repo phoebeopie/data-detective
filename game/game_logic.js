@@ -289,7 +289,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 /* ======================================================================
    4. Navigation, opening, dispatch
    ====================================================================== */
-const state = { visited: new Set(), selected: null, clue: null, locked: null };
+const state = { visited: new Set(), selected: null, clue: null, locked: null, openInfo: new Set() };
 let map = null;
 const SCREENS = ["home", "brief", "board", "replay", "verdict"];
 function show(id) {
@@ -324,15 +324,26 @@ $("conditions").innerHTML = `
   <ul>${PINE.loves.map((x) => `<li>${x}</li>`).join("")}</ul>
   <p><b>What stresses it:</b> drought — especially several dry years in a row — and unusually cold late winters.</p>
   <p class="src">Sources: <a href="${SOURCES.S15.url}" target="_blank" rel="noopener" title="${SOURCES.S15.cite}">S15</a> (needs); ${srcLinks(["S3", "S4", "S5"])} (stress).</p>`;
-$("guide-toggle").onclick = () => {
-  const g = $("guide"), open = g.classList.toggle("hidden") === false;
-  $("guide-toggle").setAttribute("aria-expanded", String(open));
-  g.innerHTML = `
-    <p class="guide-txt"><b>Stress signals from the research.</b> These are warning signs measured in studies, not a pass/fail test. Each carries an evidence tier:
-      <b>A</b> = Scots pine, measured threshold · <b>B</b> = Scots pine, direction only · <b>C</b> = other species, context only.</p>
-    <ul class="rulelist">${RULES.map((r) => `<li>${tierTag(r.tier)}<b>${r.id} ${r.name}</b> — ${r.test}. <span class="src">${srcLinks(r.src)}</span></li>`).join("")}</ul>
-    <p class="src">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
-};
+$("guide").innerHTML = `
+  <h4>Species guide</h4>
+  <ul>${PINE.facts.map((x) => `<li>${x}</li>`).join("")}</ul>
+  <p class="src">Source: <a href="${SOURCES.S15.url}" target="_blank" rel="noopener" title="${SOURCES.S15.cite}">S15</a></p>`;
+const ruleCardBrief = (r) => `<div class="rcard">
+    <div class="rc-top">${tierTag(r.tier)}<b>${r.id} · ${r.name}</b></div>
+    <dl><dt>Fires when</dt><dd class="fires">${r.test}</dd>
+      <dt>Why it matters</dt><dd>${r.effect}</dd>
+      <dt>Reads</dt><dd>${r.vars.map((id) => varById(id).name.toLowerCase()).join(" and ")} records</dd>
+      <dt>Evidence</dt><dd class="src">Tier ${r.tier} (${TIER_TEXT[r.tier]}) · ${srcLinks(r.src)}</dd></dl>
+  </div>`;
+$("rules-explained").innerHTML = `
+  <p class="rules-intro">When you replay 2005–2024, the game checks every year of the NASA records against warning signs measured in published Scots pine research. A signal <b>fires</b> in a year when the records cross its threshold. <b>T</b> signals are about temperature; <b>W</b> signals are about water.</p>
+  <p class="rules-intro">These are warning signs, not a pass/fail test. Each one carries an evidence tier that says how directly it applies to Scots pine:</p>
+  <div class="tier-key">${["A", "B", "C"].map((x) => `<span>${tierTag(x)}${TIER_TEXT[x]}</span>`).join("")}</div>
+  <div class="rule-groups">
+    <div><h4>T · Temperature signals</h4>${RULES.filter((r) => r.driver === "temperature").map(ruleCardBrief).join("")}</div>
+    <div><h4>W · Water signals</h4>${RULES.filter((r) => r.driver === "water").map(ruleCardBrief).join("")}</div>
+  </div>
+  <p class="src fineprint">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
 
 /* ======================================================================
    5. Evidence board: full-screen map + evidence file
@@ -393,7 +404,7 @@ function renderMap() {
     const regs = REGIONS.filter((r) => ids.includes(r.id));
     const pts = regs.flatMap((r) => [proj([r.bbox[0], r.bbox[1]]), proj([r.bbox[2], r.bbox[3]]), proj([r.bbox[0], r.bbox[3]]), proj([r.bbox[2], r.bbox[1]])]);
     const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), y0 = Math.min(...pts.map((p) => p[1])) - 30, y1 = Math.max(...pts.map((p) => p[1]));
-    const L = desktop ? 40 : 20, R = desktop ? W - Math.min(470, W * .44) - 20 : W - 20, T = desktop ? 150 : 80, B = H - (desktop ? 70 : 150);
+    const L = desktop ? 40 : 20, R = desktop ? W - Math.min(510, W * .46) - 20 : W - 20, T = desktop ? 150 : 80, B = H - (desktop ? 70 : 150);
     const k = Math.min(12, padK * Math.min((R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0)));
     return d3.zoomIdentity.translate((L + R) / 2 - k * (x0 + x1) / 2, (T + B) / 2 - k * (y0 + y1) / 2).scale(k);
   };
@@ -420,6 +431,34 @@ function openRegion(id, viaKeyboard) {
   updateMarks(); renderPanel(); updatePlant();
   if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
+// statistics for one clue at one site (same results and wording as the first version's region file)
+function statsBlock(reg, v) {
+  const D = DATA[reg.id], d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality, up = mk.senSlopePerDecade > 0, R = D.rules;
+  const cc = CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id];
+  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
+  return `<div>
+      <div class="def-h">Seasons removed — is there a trend?</div>
+      <div class="chart" id="pchart-${v.id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
+      <p class="src">Monthly difference from normal (${v.units}), ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend${q ? ` · ${q.points_used ? q.points_used + " grid points · " : ""}${q.months_total - q.months_missing}/${q.months_total} months${q.months_missing ? " (gaps left empty)" : ""}${q.values_removed ? ` · ${q.values_removed} impossible values removed` : ""}` : ""}.</p>
+    </div>
+    <div class="finding">
+      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
+      <div><strong>${trendWord(d)}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
+    </div>
+    <div class="tests">
+      <div class="tag"><h5>Mann-Kendall · Sen's slope</h5><dl>
+        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
+        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
+        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
+      <div class="tag"><h5>Straight line · t-test</h5><dl>
+        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
+        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
+        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
+    </div>
+    ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
+    ${myRules.length ? `<div><div class="def-h">Stress signals that use this clue (years fired, ${FIRST_YEAR}–${LAST_YEAR})</div><div class="chips">${myRules.map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length} of ${YEARS.length}</span>`).join("")}</div></div>` : ""}`;
+}
 function closePanel() {
   $("dossier").classList.add("hidden");
   const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
@@ -437,9 +476,10 @@ function renderPanel() {
       <div class="val">${missing ? "Unavailable" : `${fmt(b)} <small>${v.units}</small>`}</div>
       <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
       <div class="def hidden" id="def-${v.id}">
-        <p>${v.def}</p>
+        <div><p>${v.def}</p>
         <p>Dataset: <a href="${ds.url}" target="_blank" rel="noopener">${ds.name}</a> · ${ds.via} · variable <code>${shortName(v)}</code>.
-        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p>
+        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p></div>
+        ${missing ? "" : statsBlock(reg, v)}
       </div>
       ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
     </div>`;
@@ -458,9 +498,16 @@ function renderPanel() {
       ${!reg.playable ? `<p class="note note-bad">Missing records — this region can't be planted.</p>` : ""}
       <p class="src">Pin the one clue you trust most (optional). Charts, stress signals and rankings come in the replay and the verdict.</p>
     </div>`;
-  p.querySelectorAll(".info").forEach((b) => (b.onclick = () => {
-    const d = $(b.getAttribute("aria-controls")), open = d.classList.toggle("hidden") === false; b.setAttribute("aria-expanded", String(open));
-  }));
+  const openInfo = (b, open) => {
+    const id = b.getAttribute("aria-controls").slice(4), d = $(b.getAttribute("aria-controls"));
+    d.classList.toggle("hidden", !open); b.setAttribute("aria-expanded", String(open));
+    open ? state.openInfo.add(id) : state.openInfo.delete(id);
+    if (open && $(`pchart-${id}`)) drawTrend(D[id], varById(id), `pchart-${id}`);   // drawn once visible, so it gets its real width
+  };
+  p.querySelectorAll(".info").forEach((b) => {
+    b.onclick = () => openInfo(b, b.getAttribute("aria-expanded") !== "true");
+    if (state.openInfo.has(b.getAttribute("aria-controls").slice(4))) openInfo(b, true);
+  });
   p.querySelectorAll(".pinclue").forEach((b) => (b.onclick = () => {
     state.clue = state.clue === b.dataset.var ? null : b.dataset.var;
     const keep = b.dataset.var, top = p.querySelector(".panel-body").scrollTop;
