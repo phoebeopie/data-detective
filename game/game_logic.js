@@ -233,23 +233,101 @@ function ruleSupport(id) {
 }
 
 /* ======================================================================
-   3. Navigation + species guide
+   3. Derived records shared by the map, replay and verdict
    ====================================================================== */
-const state = { visited: new Set(), selected: null, varId: "temp", showRaw: false };
+// Annual record = mean of that year's monthly values (dataset units); needs ≥ 10 of 12 months, otherwise a gap.
+const BASE_FROM = 2000, BASE_TO = 2004;                 // baseline: the five years before planting
+const ANNUAL = {};
+function annualOf(values) {
+  return YEARS.map((y, i) => { const m = values.slice(i * 12, i * 12 + 12).filter(fin); return m.length >= 10 ? avg(m) : NaN; });
+}
+function buildAnnual() {
+  for (const reg of REGIONS) {
+    ANNUAL[reg.id] = {};
+    for (const v of VARS) ANNUAL[reg.id][v.id] = DATA[reg.id][v.id] ? annualOf(DATA[reg.id][v.id].values) : null;
+  }
+}
+const yearVal = (regId, varId, y) => { const a = ANNUAL[regId] && ANNUAL[regId][varId]; return a ? a[y - FIRST_YEAR] : NaN; };
+function baseline(regId, varId) {
+  const a = ANNUAL[regId] && ANNUAL[regId][varId]; if (!a) return NaN;
+  const xs = YEARS.map((y, i) => (y >= BASE_FROM && y <= BASE_TO ? a[i] : NaN)).filter(fin);
+  return xs.length >= 4 ? avg(xs) : NaN;
+}
+
+// Provenance (dataset, variable short name, glossary) and plain-English meaning for each clue
+const DATASETS = {
+  gldas: { name: "GLDAS Noah Land Surface Model L4, monthly 0.25°, version 2.1 (GLDAS_NOAH025_M)", via: "NASA GES DISC, accessed via Giovanni", url: "https://doi.org/10.5067/SXAVCZFAQLNO" },
+  modis: { name: "MODIS/Terra Vegetation Indices Monthly L3 Global 1 km, version 6.1 (MOD13A3)", via: "NASA LP DAAC, accessed via AppEEARS", url: "https://doi.org/10.5067/MODIS/MOD13A3.061" },
+};
+const GLOSSARY_URL = "https://giovanni.gsfc.nasa.gov/giovanni/doc/glossary/Giovanni_Variable_Definitions_Glossary.html";
+const dsOf = (v) => (v.id === "ndvi" ? DATASETS.modis : DATASETS.gldas);
+const shortName = (v) => (v.source.split(" · ")[1] || v.source);
+const WHY = {
+  temp: "Warmth for growing. Unusually cold late winters are a Scots pine stress signal.",
+  rain: "The water supply. Dry late summers and spring–summer droughts are stress signals.",
+  soil: "Water the roots can reach. A very dry root zone is a (weak, tier C) stress flag.",
+  potevap: "How thirsty the air is. Higher demand dries the soil faster.",
+  topsoil: "Surface wetness — reacts first when a region dries out.",
+  evap: "Water actually going back to the air from soil and plants.",
+  sun: "Light at the ground. Low-confidence model input — read with caution.",
+  ndvi: "Regional greenness seen by satellite — all vegetation, not only pines.",
+};
+const HILO = { temp: ["warmest", "coldest"], rain: ["wettest", "driest"], soil: ["wettest", "driest"], topsoil: ["wettest", "driest"],
+  potevap: ["highest", "lowest"], evap: ["highest", "lowest"], sun: ["sunniest", "least sunny"], ndvi: ["greenest", "least green"] };
+const ord = (n) => n + (n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th");
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+function rankPhrase(regId, v) {
+  const vals = REGIONS.map((r) => ({ id: r.id, x: baseline(r.id, v.id) })).filter((o) => fin(o.x)).sort((a, b) => b.x - a.x);
+  const k = vals.findIndex((o) => o.id === regId), n = vals.length, [hi, lo] = HILO[v.id];
+  if (k < 0 || n < 2) return "";
+  return k === 0 ? `${cap(hi)} of the ${n} sites` : k === n - 1 ? `${cap(lo)} of the ${n} sites` : `${ord(k + 1)} ${hi} of ${n}`;
+}
+const valTxt = (x, v) => (fin(x) ? `${fmt(x)} ${v.units}` : "no data");
+const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ======================================================================
+   4. Navigation, opening, dispatch
+   ====================================================================== */
+const state = { visited: new Set(), selected: null, clue: null, locked: null };
 let map = null;
+const SCREENS = ["home", "brief", "board", "replay", "verdict"];
 function show(id) {
-  ["home", "brief", "board", "replay"].forEach((s) => $(`s-${s}`).classList.toggle("hidden", s !== id));
-  document.querySelectorAll(".steps span").forEach((el) => el.classList.toggle("on", el.dataset.step === id));
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  SCREENS.forEach((s) => $(`s-${s}`).classList.toggle("hidden", s !== id));
+  if (id !== "replay") pause();
+  window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
+  if (id === "brief") typeTitle();
+  if (id === "board" && map) { const box = $("board-body").getBoundingClientRect(); if (map.w !== Math.round(box.width) || map.h !== Math.round(box.height)) renderMap(); }
 }
 $("home-link").onclick = () => show("home");
 $("start").onclick = () => show("brief");
 $("to-board").onclick = () => show("board");
+
+// "The Scots pine case" typed letter by letter, then the question appears (instant with reduced motion)
+let typeTimer = null;
+function typeTitle() {
+  const el = $("case-title-text"), q = $("case-question"), full = "The Scots pine case";
+  clearTimeout(typeTimer);
+  if (reduceMotion()) { el.textContent = full; q.classList.remove("pending"); return; }
+  q.classList.add("pending"); el.innerHTML = '<span class="caret"></span>';
+  let i = 0;
+  const tick = () => {
+    i++; el.innerHTML = esc(full.slice(0, i)) + '<span class="caret"></span>';
+    if (i < full.length) typeTimer = setTimeout(tick, 70);
+    else typeTimer = setTimeout(() => { el.textContent = full; q.classList.remove("pending"); }, 450);
+  };
+  typeTimer = setTimeout(tick, 500);
+}
+
+$("conditions").innerHTML = `
+  <p><b>What it needs</b></p>
+  <ul>${PINE.loves.map((x) => `<li>${x}</li>`).join("")}</ul>
+  <p><b>What stresses it:</b> drought — especially several dry years in a row — and unusually cold late winters.</p>
+  <p class="src">Sources: <a href="${SOURCES.S15.url}" target="_blank" rel="noopener" title="${SOURCES.S15.cite}">S15</a> (needs); ${srcLinks(["S3", "S4", "S5"])} (stress).</p>`;
 $("guide-toggle").onclick = () => {
   const g = $("guide"), open = g.classList.toggle("hidden") === false;
   $("guide-toggle").setAttribute("aria-expanded", String(open));
   g.innerHTML = `
-    <div>${PINE.loves.map((x) => `<span class="pill">✓ ${x}</span>`).join("")}${PINE.hates.map((x) => `<span class="pill bad">✗ ${x}</span>`).join("")}</div>
     <p class="guide-txt"><b>Stress signals from the research.</b> These are warning signs measured in studies, not a pass/fail test. Each carries an evidence tier:
       <b>A</b> = Scots pine, measured threshold · <b>B</b> = Scots pine, direction only · <b>C</b> = other species, context only.</p>
     <ul class="rulelist">${RULES.map((r) => `<li>${tierTag(r.tier)}<b>${r.id} ${r.name}</b> — ${r.test}. <span class="src">${srcLinks(r.src)}</span></li>`).join("")}</ul>
@@ -257,15 +335,18 @@ $("guide-toggle").onclick = () => {
 };
 
 /* ======================================================================
-   4. Map
+   5. Evidence board: full-screen map + evidence file
    ====================================================================== */
+let zoomB = null, svgSel = null, projB = null;
 function renderMap() {
-  const svg = d3.select("#map"), W = 640, H = 400;
-  svg.selectAll("*").remove();
-  const proj = d3.geoNaturalEarth1().fitExtent([[10, 10], [W - 10, H - 10]], { type: "Sphere" });
+  const box = $("board-body").getBoundingClientRect(), W = Math.max(320, Math.round(box.width)), H = Math.max(320, Math.round(box.height));
+  const desktop = W > 760;
+  const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
+  svg.selectAll("*").remove(); svgSel = svg;
+  const proj = d3.geoNaturalEarth1().fitExtent([[0, 0], [W, H]], { type: "Sphere" }); projB = proj;
   const path = d3.geoPath(proj);
   const layer = svg.append("g");
-  layer.append("rect").attr("width", W).attr("height", H).attr("fill", "#eef2fb");
+  layer.append("rect").attr("x", -W).attr("y", -H).attr("width", 3 * W).attr("height", 3 * H).attr("fill", "#eef2fb");
   layer.append("path").datum(d3.geoGraticule10()).attr("class", "grat").attr("d", path);
   layer.append("g").selectAll("path").data(LAND.features).join("path").attr("class", "land").attr("d", path);
   const boxPath = ([w, s, e, n]) => {
@@ -278,181 +359,136 @@ function renderMap() {
   };
   const centre = (b) => proj([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]);
   const g = layer.append("g").selectAll("g").data(REGIONS).join("g")
-    .attr("class", "region").attr("tabindex", 0).attr("role", "button").attr("aria-label", (d) => `Open the ${d.name} file`);
-  g.append("circle").attr("class", "halo").attr("transform", (d) => `translate(${centre(d.bbox)})`).attr("r", 10);
+    .attr("class", "region").attr("tabindex", 0).attr("role", "button").attr("aria-label", (d) => `${d.name}${d.home ? " (home)" : ""}: open the evidence file`);
   g.append("path").attr("class", "area").attr("d", (d) => boxPath(d.bbox));
-  g.append("text").attr("class", "lbl")
-    .attr("transform", (d) => { const [w, s, e, n] = d.bbox; return `translate(${proj([d.label[2] === "end" ? w : e, (s + n) / 2])})`; })
-    .attr("text-anchor", (d) => d.label[2]).text((d) => (d.home ? "🏠 " : "") + d.name);
+  const pin = g.append("g").attr("class", "pin").attr("transform", (d) => `translate(${centre(d.bbox)})`).append("g").attr("class", "pin-s");
+  pin.append("circle").attr("class", "pin-ring").attr("cy", -20).attr("r", 16).attr("stroke-width", 2);
+  pin.append("circle").attr("class", "focus-ring").attr("cy", -19).attr("r", 19).attr("stroke-width", 3);
+  pin.append("path").attr("class", "pin-body").attr("stroke-width", 2).attr("d", "M0,0 C-5,-7 -12,-12 -12,-20 A12,12 0 1 1 12,-20 C12,-12 5,-7 0,0Z");
+  pin.append("circle").attr("class", "pin-dot").attr("cy", -20).attr("r", 4.5);
+  pin.append("circle").attr("class", "hit").attr("cy", -16).attr("r", 24);
+  pin.append("text").attr("class", "lbl").attr("x", (d) => (d.label[2] === "end" ? -16 : 16)).attr("y", -14).attr("text-anchor", (d) => d.label[2])
+    .attr("font-size", 14).attr("stroke-width", 4).text((d) => (d.home ? "🏠 " : "") + d.name);
 
   const tip = $("tooltip");
   g.on("mousemove", (ev, d) => {
     tip.classList.remove("hidden");
-    tip.style.left = ev.clientX + 14 + "px"; tip.style.top = ev.clientY + 14 + "px";
-    const R = DATA[d.id] && DATA[d.id].rules;
-    const rows = !R ? "Missing records" : RULES.filter((r) => R.avail[r.id]).map((r) => {
-      const n = R.fired[r.id].filter(Boolean).length; return `${n ? "●" : "○"} ${r.name}: ${n} of ${YEARS.length} years`;
-    }).join("<br>");
-    tip.innerHTML = `<b>${d.name}</b><br>${rows}<br><i style="opacity:.7">${d.playable ? "Click to open the file" : "Missing data — can't be planted"}</i>`;
+    tip.style.left = Math.min(ev.clientX + 14, window.innerWidth - 270) + "px"; tip.style.top = ev.clientY + 14 + "px";
+    tip.innerHTML = `<b>${d.name}</b>${d.home ? " · 🏠 home" : ""}<br>${d.desc}<br><i>${d.playable ? "Click to open the evidence file" : "Missing records — can't be planted"}</i>`;
   }).on("mouseleave", () => tip.classList.add("hidden"))
-    .on("click", (ev, d) => openRegion(d.id))
-    .on("keydown", (ev, d) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openRegion(d.id); } });
+    .on("click", (ev, d) => { tip.classList.add("hidden"); openRegion(d.id); })
+    .on("keydown", (ev, d) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openRegion(d.id, true); } });
 
-  function onZoom(k, t) {
-    if (t) layer.attr("transform", t);
-    layer.selectAll(".region text").style("font-size", `${11 / k}px`).style("stroke-width", `${3 / k}px`)
-      .attr("dx", (d) => d.label[0] / k).attr("dy", (d) => (d.label[1] + 4) / k).style("display", k < 1.8 ? "none" : null);
-    layer.selectAll(".region .area").style("stroke-width", `${1.4 / k}px`);
-    layer.selectAll(".region .halo").attr("r", 10 / k).style("stroke-width", `${2 / k}px`).style("display", k >= 3 ? "none" : null);
+  function onZoom(t) {
+    layer.attr("transform", t);
+    layer.selectAll(".pin-s").attr("transform", `scale(${1 / t.k})`);
+    layer.selectAll(".region .area").style("stroke-width", `${1.4 / t.k}px`);
+    layer.selectAll(".land").style("stroke-width", `${0.5 / t.k}px`);
   }
-  const zoom = d3.zoom().scaleExtent([1, 9]).translateExtent([[0, 0], [W, H]]).on("zoom", (ev) => onZoom(ev.transform.k, ev.transform));
-  svg.call(zoom);
-  // fit all six regions
-  const fitAll = () => {
-    const pts = REGIONS.flatMap((r) => [proj([r.bbox[0], r.bbox[1]]), proj([r.bbox[2], r.bbox[3]]), proj([r.bbox[0], r.bbox[3]]), proj([r.bbox[2], r.bbox[1]])]);
-    const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0]));
-    const y0 = Math.min(...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]));
-    const k = Math.min(9, 0.85 * Math.min(W / (x1 - x0), H / (y1 - y0)));
-    return d3.zoomIdentity.translate(W / 2 - k * (x0 + x1) / 2, H / 2 - k * (y0 + y1) / 2).scale(k);
+  const zoom = d3.zoom().scaleExtent([1, 12]).translateExtent([[-W * .2, -H * .2], [W * 1.2, H * 1.2]]).on("zoom", (ev) => onZoom(ev.transform));
+  zoomB = zoom;
+  svg.call(zoom).on("dblclick.zoom", null);
+  // frame all six pins inside the free area (leave room for the title card, the panel and the plant button)
+  const fit = (ids, padK = .8) => {
+    const regs = REGIONS.filter((r) => ids.includes(r.id));
+    const pts = regs.flatMap((r) => [proj([r.bbox[0], r.bbox[1]]), proj([r.bbox[2], r.bbox[3]]), proj([r.bbox[0], r.bbox[3]]), proj([r.bbox[2], r.bbox[1]])]);
+    const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), y0 = Math.min(...pts.map((p) => p[1])) - 30, y1 = Math.max(...pts.map((p) => p[1]));
+    const L = desktop ? 40 : 20, R = desktop ? W - Math.min(470, W * .44) - 20 : W - 20, T = desktop ? 150 : 80, B = H - (desktop ? 70 : 150);
+    const k = Math.min(12, padK * Math.min((R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0)));
+    return d3.zoomIdentity.translate((L + R) / 2 - k * (x0 + x1) / 2, (T + B) / 2 - k * (y0 + y1) / 2).scale(k);
   };
-  $("zoom-in").onclick = () => svg.transition().call(zoom.scaleBy, 1.6);
-  $("zoom-out").onclick = () => svg.transition().call(zoom.scaleBy, 1 / 1.6);
-  $("zoom-europe").onclick = () => svg.transition().duration(600).call(zoom.transform, fitAll());
-  $("zoom-reset").onclick = () => svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity);
-  svg.call(zoom.transform, fitAll());
-  map = true;
+  map = { w: W, h: H, fit };
+  const go = (t, ms) => (reduceMotion() ? svg.call(zoom.transform, t) : svg.transition().duration(ms).call(zoom.transform, t));
+  $("zoom-in").onclick = () => (reduceMotion() ? svg.call(zoom.scaleBy, 1.6) : svg.transition().call(zoom.scaleBy, 1.6));
+  $("zoom-out").onclick = () => (reduceMotion() ? svg.call(zoom.scaleBy, 1 / 1.6) : svg.transition().call(zoom.scaleBy, 1 / 1.6));
+  $("zoom-europe").onclick = () => go(fit(REGIONS.map((r) => r.id)), 600);
+  map.go = go;
+  svg.call(zoom.transform, fit(REGIONS.map((r) => r.id)));
   updateMarks();
 }
+let resizeT = null;
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (map && !$("s-board").classList.contains("hidden")) renderMap(); }, 200); });
+
 function updateMarks() {
   d3.selectAll(".region").classed("sel", (d) => d.id === state.selected)
     .classed("visited", (d) => state.visited.has(d.id)).classed("nodata", (d) => !d.playable);
   $("examined").innerHTML = `EXAMINED <b>${state.visited.size}</b> / ${REGIONS.length}`;
 }
 
-/* ======================================================================
-   5. Region dossier
-   ====================================================================== */
-function openRegion(id) { state.selected = id; state.visited.add(id); updateMarks(); renderDossier(); renderCall(); }
-
-function ruleStrip(R, r) {
-  return `<div class="strip" title="${r.id}: years it fired">${YEARS.map((y, i) => `<i class="${R.fired[r.id][i] ? "on t" + r.tier : ""}" title="${y}${R.fired[r.id][i] ? " — fired" : ""}"></i>`).join("")}</div><div class="strip-axis" aria-hidden="true"><span>${FIRST_YEAR}</span><span>${YEARS[12]}</span><span>${LAST_YEAR}</span></div>`;
+function openRegion(id, viaKeyboard) {
+  state.selected = id; state.visited.add(id);
+  updateMarks(); renderPanel(); updatePlant();
+  if (viaKeyboard) $("panel-title").focus();   // keyboard users land in the file; Escape takes them back to the pin
 }
-function ruleCard(R, r) {
-  const n = R.fired[r.id].filter(Boolean).length, sup = ruleSupport(r.id);
-  return `<div class="rulecard">
-    <div class="rc-head">${tierTag(r.tier)}<b>${r.id} · ${r.name}</b><span class="rc-n">${n} of ${YEARS.length} years</span></div>
-    <div class="rc-test">${r.test}</div>
-    ${ruleStrip(R, r)}
-    <div class="rc-foot">${r.effect} <span class="src">Source ${srcLinks(r.src)} · tier ${r.tier} (${TIER_TEXT[r.tier]}) · <span class="${sup.cls}-t">${sup.txt}</span></span></div>
-  </div>`;
+function closePanel() {
+  $("dossier").classList.add("hidden");
+  const g = [...document.querySelectorAll(".region")].find((e) => e.__data__.id === state.selected);
+  if (g) g.focus({ preventScroll: true });
 }
 
-function renderDossier() {
-  const reg = regionById(state.selected), D = DATA[reg.id];
-  if (!D[state.varId]) {
-    const first = VARS.find((x) => D[x.id]);
-    if (!first) { $("dossier").innerHTML = `<h2>${reg.name}</h2><p class="lead">No records on file for this region yet.</p>`; return; }
-    state.varId = first.id;
-  }
-  const v = varById(state.varId), d = D[v.id], res = d.result, mk = res.mannKendall, lin = res.linear, q = d.quality;
-  const up = mk.senSlopePerDecade > 0;
-  const word = d.sig ? (up ? "Rising" : "Falling") : (up ? "Slightly rising — not proven" : "Slightly falling — not proven");
-  const R = D.rules;
-  const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
-  const allFired = R ? RULES.filter((r) => R.avail[r.id]).map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length}</span>`).join("") : "";
-  $("dossier").innerHTML = `
-    <div class="d-head">
-      <div class="label">Region file${reg.home ? " · 🏠 home" : ""}</div>
-      <h2>${reg.name}</h2>
-      <p class="desc">${reg.desc}</p>
-      <div class="meta">AREA ${lat(reg.bbox[1])}–${lat(reg.bbox[3])} · ${lon(reg.bbox[0])}–${lon(reg.bbox[2])} · VALUES AVERAGED OVER THE AREA</div>
-    </div>
-    ${R ? `<div class="dsec"><div class="label">Stress signals 2000–2024 (years fired)</div><div class="chips">${allFired}</div></div>` : ""}
-    <div class="dsec">
-    <div class="label" id="clues-label">Clues on file</div>
-    <div class="cluetabs" role="tablist" aria-labelledby="clues-label">
-      ${VARS.map((x) => `<button role="tab" data-var="${x.id}" class="${x.key ? "key" : ""}" aria-selected="${x.id === v.id}" ${D[x.id] ? "" : "disabled title='No data on file'"}>${x.name}${D[x.id] ? "" : " · no data"}</button>`).join("")}
-    </div>
-    <div class="legend-line"><i aria-hidden="true"></i>Black-edged clues feed the research's stress signals. The others are supporting clues.</div>
-    <div>
-      <div class="chart-head"><h3>${state.showRaw ? "Monthly records" : "Seasons removed — is there a trend?"}</h3>
-        <label class="toggle"><input type="checkbox" id="raw" ${state.showRaw ? "checked" : ""}/> raw records</label></div>
-      <div class="chart" id="chart"></div>
-      <div class="src">${v.def} SOURCE: ${v.source}${q ? ` · ${q.points_used ? q.points_used + " GRID POINTS · " : ""}${q.months_total - q.months_missing}/${q.months_total} MONTHS${q.months_missing ? " (GAPS LEFT EMPTY)" : ""}${q.values_removed ? ` · ${q.values_removed} IMPOSSIBLE VALUES REMOVED` : ""}` : ""}</div>
-    </div>
-    </div>
-    <div class="dsec">
-    <div class="finding">
-      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
-      <div class="txt"><strong>${word}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
-    </div>
-    <div class="tests">
-      <div class="tag"><h4>Mann-Kendall · Sen's slope</h4><dl>
-        <dt>Rate</dt><dd>${signed(mk.senSlopePerDecade)} ${v.units}/decade</dd>
-        <dt>Ups vs downs</dt><dd>${(mk.tau * 100).toFixed(0)}%</dd>
-        <dt>Evidence</dt><dd>${pTxt(mk.p)} · ${qTxt(d.q)}</dd></dl></div>
-      <div class="tag"><h4>Straight line · t-test</h4><dl>
-        <dt>Rate</dt><dd>${signed(lin.slopePerDecade)} ${v.units}/decade</dd>
-        <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
-        <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
-    </div>
-    ${CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id] ? `<div class="note ${CROSSCHECK[reg.id][v.id][0] === "ok" ? "note-ok" : CROSSCHECK[reg.id][v.id][0] === "bad" ? "note-bad" : ""}"><b>${CROSSCHECK[reg.id][v.id][0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${CROSSCHECK[reg.id][v.id][1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
-    ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
-    </div>
-    ${myRules.length ? `<div class="dsec"><div class="label">Pine stress signals that use this clue</div><div class="rulecards">${myRules.map((r) => ruleCard(R, r)).join("")}</div></div>`
-      : `<div class="dsec"><div class="note note-info">🔎 Supporting clue — no stress rule uses it directly. ${v.id === "ndvi" ? "Greenness is how we TEST the rules: if a rule matters, greenness should dip in the years it fires." : v.id === "evap" ? "The research gives evaporation low weight (E1): context for the water balance." : v.id === "sun" ? "The research gives no sunlight threshold (L1): Scots pine needs full sun, but light rarely limits it in Europe." : "Topsoil reacts before the root zone does."}</div></div>`}`;
-  // after a re-render, put focus back on the control that was used (keyboard users keep their place)
-  $("dossier").querySelectorAll(".cluetabs button").forEach((b) => (b.onclick = () => { state.varId = b.dataset.var; renderDossier(); const nb = $("dossier").querySelector(`.cluetabs button[data-var="${state.varId}"]`); if (nb) nb.focus({ preventScroll: true }); }));
-  $("raw").onchange = (e) => { state.showRaw = e.target.checked; renderDossier(); $("raw").focus({ preventScroll: true }); };
-  drawChart(d, v);
-}
-
-function drawChart(d, v) {
-  const res = d.result, mk = res.mannKendall, lin = res.linear;
-  const color = !d.sig ? C.muted : mk.senSlopePerDecade > 0 ? C.rise : C.fall;
-  const layout = {
-    margin: { l: 52, r: 8, t: 8, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-    font: { family: "DM Sans, system-ui, sans-serif", size: 11, color: "#4c5272" }, showlegend: false, hovermode: "x unified",
-    hoverlabel: { bgcolor: "#1b2140", bordercolor: "#1b2140", font: { family: "DM Sans, system-ui, sans-serif", color: "#fff", size: 12 } },
-    xaxis: { showgrid: false, linecolor: "#1b2140", linewidth: 1.5, ticks: "outside", tickcolor: "#1b2140", ticklen: 4, tickfont: { family: "Space Mono, ui-monospace, monospace", size: 10 } },
-    yaxis: { gridcolor: "#e9e4d4", griddash: "dot", zeroline: false, tickfont: { family: "Space Mono, ui-monospace, monospace", size: 10 },
-      title: { text: state.showRaw ? v.units : `vs normal (${v.units})`, font: { size: 11 } } },
-  };
-  const t0 = new Date(d.dates[0]).getTime();
-  const yrs = d.dates.map((x) => (new Date(x).getTime() - t0) / (365.25 * 864e5));
-  const traces = state.showRaw
-    ? [{ x: d.dates, y: d.values.map((x) => (fin(x) ? x : null)), type: "scatter", mode: "lines", line: { color: C.line, width: 1.3 }, hovertemplate: `%{y:.3g} ${v.units}<extra></extra>` }]
-    : [{ x: d.dates, y: res.anomalies.map((x) => (fin(x) ? x : null)), type: "scatter", mode: "lines", line: { color: C.anom, width: 1 }, hovertemplate: `%{y:+.3g} ${v.units}<extra>vs normal</extra>` },
-       { x: d.dates, y: yrs.map((t) => lin.intercept + lin.slopePerYear * t), type: "scatter", mode: "lines", line: { color, width: 3 }, hoverinfo: "skip" }];
-  if (!state.showRaw) layout.shapes = [{ type: "line", xref: "paper", x0: 0, x1: 1, y0: 0, y1: 0, line: { color: "#cfcab9", width: 1 } }];
-  Plotly.react("chart", traces, layout, { displayModeBar: false, responsive: true });
-}
-
-/* ======================================================================
-   6. Make your call (one seed)
-   ====================================================================== */
-function renderCall() {
-  const cur = $("pick-region").value, curC = $("pick-clue").value;
-  $("pick-region").innerHTML = `<option value="">Choose a region…</option>` + REGIONS.map((r) => {
-    const off = !r.playable || !state.visited.has(r.id);
-    const why = !r.playable ? " (missing data)" : !state.visited.has(r.id) ? " (not examined yet)" : "";
-    return `<option value="${r.id}" ${off ? "disabled" : ""} ${cur === r.id ? "selected" : ""}>${r.home ? "🏠 " : ""}${r.name}${why}</option>`;
+function renderPanel() {
+  const reg = regionById(state.selected), D = DATA[reg.id], p = $("dossier");
+  p.classList.remove("hidden");
+  p.setAttribute("aria-label", `Evidence file: ${reg.name}`);
+  const rows = VARS.map((v) => {
+    const b = baseline(reg.id, v.id), missing = !D[v.id] || !fin(b), pinned = state.clue === v.id, ds = dsOf(v);
+    return `<div class="evrow ${missing ? "missing" : ""} ${pinned ? "pinned-row" : ""}">
+      <div class="nm">${v.name}<button class="info" aria-expanded="false" aria-controls="def-${v.id}" aria-label="What is ${v.name}?">i</button></div>
+      <div class="val">${missing ? "Unavailable" : `${fmt(b)} <small>${v.units}</small>`}</div>
+      <p class="why">${missing ? "No records on file for this region." : `<span class="rank">${rankPhrase(reg.id, v)}.</span> ${WHY[v.id]}`}</p>
+      <div class="def hidden" id="def-${v.id}">
+        <p>${v.def}</p>
+        <p>Dataset: <a href="${ds.url}" target="_blank" rel="noopener">${ds.name}</a> · ${ds.via} · variable <code>${shortName(v)}</code>.
+        ${v.id === "ndvi" ? "" : `Definition: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.`}</p>
+      </div>
+      ${missing ? "" : `<div class="tools"><button class="pinclue" data-var="${v.id}" aria-pressed="${pinned}">${pinned ? "📌 Your clue" : "Pin as my clue"}</button></div>`}
+    </div>`;
   }).join("");
-  $("pick-clue").innerHTML = `<option value="">Choose a clue…</option>` + VARS.map((v) => `<option value="${v.id}" ${curC === v.id ? "selected" : ""}>${v.name}</option>`).join("");
-  updateCall();
+  p.innerHTML = `
+    <div class="panel-head">
+      <span class="label">Evidence file${reg.home ? " · 🏠 home" : ""}</span>
+      <h3 id="panel-title" tabindex="-1">${reg.name}</h3>
+      <p class="desc">${reg.desc}</p>
+      <div class="period"><span class="obs-label">Baseline 2000–2004 · before planting</span></div>
+      <button class="iconbtn panel-close" id="panel-close" aria-label="Close the evidence file and go back to the pins">✕</button>
+    </div>
+    <div class="panel-body">
+      <p class="src">Each value is the average month of ${BASE_FROM}–${BASE_TO}, averaged over the area ${lat(reg.bbox[1])}–${lat(reg.bbox[3])}, ${lon(reg.bbox[0])}–${lon(reg.bbox[2])}. Records run monthly ${FIRST_YEAR}–${LAST_YEAR}.</p>
+      ${rows}
+      ${!reg.playable ? `<p class="note note-bad">Missing records — this region can't be planted.</p>` : ""}
+      <p class="src">Pin the one clue you trust most (optional). Charts, stress signals and rankings come in the replay and the verdict.</p>
+    </div>`;
+  p.querySelectorAll(".info").forEach((b) => (b.onclick = () => {
+    const d = $(b.getAttribute("aria-controls")), open = d.classList.toggle("hidden") === false; b.setAttribute("aria-expanded", String(open));
+  }));
+  p.querySelectorAll(".pinclue").forEach((b) => (b.onclick = () => {
+    state.clue = state.clue === b.dataset.var ? null : b.dataset.var;
+    const keep = b.dataset.var, top = p.querySelector(".panel-body").scrollTop;
+    renderPanel(); updatePlant();
+    p.querySelector(".panel-body").scrollTop = top;
+    const nb = p.querySelector(`.pinclue[data-var="${keep}"]`); if (nb) nb.focus({ preventScroll: true });
+  }));
+  $("panel-close").onclick = closePanel;
 }
-function updateCall() {
-  const all = state.visited.size === REGIONS.length, r = $("pick-region").value, c = $("pick-clue").value;
-  $("plant").disabled = !(all && r && c);
-  $("lockmsg").textContent = !all ? `Examine all ${REGIONS.length} regions first — ${state.visited.size} of ${REGIONS.length} done.`
-    : !r ? "Choose your planting site." : !c ? "Which clue convinced you?" : "Ready. You only get one seed — sure?";
+$("board-body").addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("dossier").classList.contains("hidden")) closePanel(); });
+
+function updatePlant() {
+  const reg = state.selected && regionById(state.selected), ok = !!(reg && reg.playable);
+  $("plant").disabled = !ok;
+  $("lockmsg").textContent = !reg ? "Pick a region on the map" : !reg.playable ? `${reg.name}: missing records`
+    : `Site: ${reg.name.split(",")[0]}${state.clue ? ` · clue: ${varById(state.clue).name}` : ""}`;
 }
-$("pick-region").onchange = updateCall;
-$("pick-clue").onchange = updateCall;
-$("plant").onclick = () => startReplay($("pick-region").value, $("pick-clue").value, $("pick-note").value.trim());
+$("plant").onclick = () => {
+  const reg = regionById(state.selected); if (!reg || !reg.playable) return;
+  state.locked = { regionId: reg.id, clueId: state.clue };
+  $("plant").disabled = true; $("dossier").classList.add("hidden");
+  const go = () => startReplay(state.locked.regionId, state.locked.clueId);
+  if (reduceMotion() || !map) return go();
+  svgSel.transition().duration(1100).call(zoomB.transform, map.fit([reg.id], .45)).on("end", go);
+};
 
 /* ======================================================================
-   7. Replay 2005–2024: real years, real stress signals
+   6. Replay 2005–2024 (20 annual records) — play / pause / scrub
    ====================================================================== */
 // Vigour and growth only VISUALISE the tier-weighted stress. This is not a survival forecast.
 function replay(regionId) {
@@ -483,127 +519,251 @@ function verdictOf(r) {
   return { word: "Chronic stress", cls: "fall", short: "Chronic stress" };
 }
 
-let timer = null;
-function startReplay(regionId, clueId, note) {
-  const reg = regionById(regionId), r = replay(regionId);
-  show("replay");
-  $("report").classList.add("hidden");
-  $("replay-title").innerHTML = `Twenty years in <span class="swash blue">${reg.name.split(",")[0]}</span>`;
-  $("r-place").textContent = reg.name;
-  $("timeline").innerHTML = r.years.map(() => "<span></span>").join("");
-  let k = -1;
-  const step = () => { k++; drawYear(r, k); if (k < r.years.length - 1) timer = setTimeout(step, 520); else finishCase(r, clueId, note); };
-  $("skip").onclick = () => { clearTimeout(timer); while (k < r.years.length - 1) { k++; drawYear(r, k); } finishCase(r, clueId, note); };
-  drawYear(r, -1);
-  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { $("skip").onclick(); return; }
-  timer = setTimeout(step, 600);
-}
 
-function drawYear(r, k) {
-  const yr = k < 0 ? { y: REPLAY_FROM, vigour: 1, growth: 0, on: [], stress: 0 } : r.years[k];
-  const gp = Math.min(1, yr.growth / (REPLAY_TO - REPLAY_FROM + 1));
-  const tree = $("r-tree");
-  tree.style.transform = `translateX(-50%) scale(${0.1 + 0.9 * gp})`;
-  tree.style.filter = `saturate(${0.3 + 0.7 * yr.vigour}) sepia(${(1 - yr.vigour) * 0.7})`;
+const RP = { regionId: null, clueId: null, r: null, k: 0, timer: null, varId: null };
+const BAND = (v) => (v >= 0.7 ? "healthy" : v >= 0.4 ? "stressed" : "struggling");
+function startReplay(regionId, clueId) {
+  const reg = regionById(regionId);
+  Object.assign(RP, { regionId, clueId, r: replay(regionId), k: 0, varId: clueId && DATA[regionId][clueId] ? clueId : (DATA[regionId].rain ? "rain" : "temp") });
+  show("replay");
+  $("replay-title").innerHTML = `Twenty years in <span class="swash blue">${reg.name.split(",")[0]}</span>`;
+  $("replay-sub").textContent = `You planted your seed in ${reg.name}${clueId ? `, trusting the ${varById(clueId).name.toLowerCase()} clue` : ""}. Press Play, or drag the year slider.`;
+  $("r-place").textContent = reg.name;
+  $("sim-note").innerHTML = `The tree, its canopy condition and its growth are <b>simulated</b> by the game from the stress signals in the real records — not measured, and not a survival forecast.`;
+  $("r-var").innerHTML = VARS.map((v) => `<option value="${v.id}" ${DATA[regionId][v.id] ? "" : "disabled"}>${v.name}${DATA[regionId][v.id] ? "" : " — unavailable"}${v.id === clueId ? " · your clue" : ""}</option>`).join("");
+  $("r-var").value = RP.varId;
+  $("timeline").innerHTML = RP.r.years.map(() => "<span></span>").join("");
+  $("to-verdict").classList.remove("ready");
+  setYear(0, true);
+}
+function setYear(k, force) {
+  k = Math.max(0, Math.min(RP.r.years.length - 1, k));
+  if (k === RP.k && !force) return;
+  RP.k = k;
+  const r = RP.r, yr = r.years[k], reg = regionById(RP.regionId);
+  $("scrub").value = yr.y; $("scrub").setAttribute("aria-valuetext", String(yr.y));
   $("r-year").textContent = yr.y;
-  $("r-hp").textContent = `${Math.round(yr.vigour * 100)}%`;
-  $("r-hbar").style.width = `${yr.vigour * 100}%`;
-  $("r-hbar").style.background = yr.vigour > 0.7 ? "#8fd14f" : yr.vigour > 0.4 ? "#f2c76a" : "#e8836f";
+  // simulated tree: size from growth, crown width and canopy colour from condition
+  const gp = Math.min(1, yr.growth / (REPLAY_TO - REPLAY_FROM + 1)), s = 0.14 + 0.86 * gp, v = yr.vigour;
+  const tree = $("r-tree");
+  tree.style.transform = `translateX(-50%) scale(${(s * (0.78 + 0.22 * v)).toFixed(3)}, ${s.toFixed(3)})`;
+  tree.style.filter = `saturate(${0.35 + 0.65 * v}) sepia(${((1 - v) * 0.75).toFixed(2)}) hue-rotate(${(-(1 - v) * 18).toFixed(0)}deg)`;
+  tree.alt = `Your simulated Scots pine in ${yr.y}: canopy ${BAND(v)}, ${Math.round(v * 100)}% condition, ${Math.round(gp * 100)}% grown`;
+  $("r-hp").textContent = `${Math.round(v * 100)}% · ${BAND(v)}`;
+  $("r-hbar").style.width = `${v * 100}%`;
+  $("r-hbar").style.background = v >= 0.7 ? "#8fd14f" : v >= 0.4 ? "#f2c76a" : "#e8836f";
   $("r-gp").textContent = `${Math.round(gp * 100)}%`;
   $("r-gbar").style.width = `${gp * 100}%`;
-  if (k >= 0) {
-    const cell = $("timeline").children[k];
-    cell.className = !yr.on.length ? "ok" : yr.strong ? "bad" : "meh";
-    cell.title = `${yr.y}: ${yr.on.length ? yr.on.map((x) => x.id).join(", ") : "no stress signal"}`;
-  }
-  $("readout").innerHTML = `<tr><th>${yr.y}</th><th>Stress signal</th><th>Tier</th><th>Source</th></tr>` +
-    (k < 0 ? `<tr><td colspan="4" class="src">Planting…</td></tr>`
-      : !yr.on.length ? `<tr><td></td><td class="ok-t">No stress signal this year</td><td></td><td></td></tr>`
-      : yr.on.map((x) => `<tr><td>${x.id}</td><td>${x.name}</td><td>${tierTag(x.tier, false)}</td><td class="src">${srcLinks(x.src)}</td></tr>`).join(""));
-}
-
-function finishCase(r, clueId, note) {
-  const reg = regionById(r.regionId), verdict = verdictOf(r), clue = varById(clueId), R = DATA[r.regionId].rules;
-  const counts = RULES.filter((x) => R.avail[x.id]).map((x) => {
-    const yrs = r.years.filter((y) => y.on.includes(x)).map((y) => y.y);
-    return { x, yrs };
+  // year log: squares appear as each year passes
+  [...$("timeline").children].forEach((c, i) => {
+    const y = r.years[i], cls = i <= k ? (!y.on.length ? "ok" : y.strong ? "bad" : "meh") : "";
+    if (c.dataset.c !== cls) { c.className = cls; c.dataset.c = cls; }
+    c.classList.toggle("now", i === k);
   });
-  const fired = counts.filter((c) => c.yrs.length).map((c) =>
-    `<li>${tierTag(c.x.tier)}<b>${c.x.id} ${c.x.name}</b> — ${c.yrs.length} of 20 years (${c.yrs.join(", ")}). ${c.x.effect} <span class="src">${srcLinks(c.x.src)}</span></li>`).join("");
-  const unavailable = RULES.filter((x) => !R.avail[x.id]).map((x) => x.id);
-  const mainVars = r.main === "water" ? ["rain", "potevap", "soil"] : r.main === "temperature" ? ["temp"] : [];
-  const clueTxt = !r.main
-    ? `Your key clue was <b>${clue.name.toLowerCase()}</b>, and no strong stress signal fired here — your call held up.`
-    : mainVars.includes(clueId) ? `🕵️ <b>Sharp work, detective.</b> Your key clue — ${clue.name.toLowerCase()} — feeds the ${r.main} signals that dominated this case.`
-    : `Your key clue was <b>${clue.name.toLowerCase()}</b>, but the dominant stress here was <b>${r.main}</b>, read from the ${mainVars.map((v) => varById(v).name.toLowerCase()).join(", ")} records.`;
+  $("signals").innerHTML = !yr.on.length ? `<b>${yr.y}:</b> no stress signal from the Scots pine research.`
+    : `<b>${yr.y}:</b> ${yr.on.map((x) => `${tierTag(x.tier, false)}<b>${x.id} ${x.name}</b>`).join(" · ")} <span class="src">${srcLinks([...new Set(yr.on.flatMap((x) => x.src))])}</span>`;
+  // exact annual readings for this year
+  $("readout").innerHTML = `<caption>Readings in ${yr.y} · ${reg.name.split(",")[0]}</caption>
+    <tr><th>Clue</th><th class="v">${yr.y}</th><th class="v">2000–04 avg</th></tr>` +
+    VARS.map((x) => {
+      const val = yearVal(RP.regionId, x.id, yr.y), base = baseline(RP.regionId, x.id), have = !!DATA[RP.regionId][x.id];
+      return `<tr class="${x.id === RP.varId ? "cur" : ""}"><td>${x.name}${x.id === RP.clueId ? " 📌" : ""}${x.id === "ndvi" ? `<span class="tagline">Regional vegetation reading (satellite, all plants)</span>` : ""}</td>
+        <td class="v">${!have ? `<span class="gap">unavailable</span>` : fin(val) ? `${fmt(val)} <small>${x.units}</small>` : `<span class="gap">gap (missing months)</span>`}</td>
+        <td class="v">${fin(base) ? fmt(base) : "—"}</td></tr>`;
+    }).join("");
+  drawReplayChart();
+  if (k === r.years.length - 1) $("to-verdict").classList.add("ready");
+}
+function drawReplayChart() {
+  const v = varById(RP.varId), ys = YEARS.filter((y) => y >= REPLAY_FROM), cur = RP.r.years[RP.k].y;
+  const vals = ys.map((y) => { const x = yearVal(RP.regionId, v.id, y); return fin(x) ? x : null; });
+  const base = baseline(RP.regionId, v.id), cv = yearVal(RP.regionId, v.id, cur);
+  const ink = "#1b2140";
+  const layout = {
+    margin: { l: 52, r: 10, t: 10, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", showlegend: false, hovermode: "closest",
+    font: { family: "DM Sans, system-ui, sans-serif", size: 11, color: "#4c5272" },
+    hoverlabel: { bgcolor: ink, bordercolor: ink, font: { color: "#fff" } },
+    xaxis: { range: [REPLAY_FROM - .5, REPLAY_TO + .5], dtick: 3, showgrid: false, linecolor: ink, ticks: "outside", tickcolor: ink, tickfont: { family: "Space Mono, monospace", size: 10 } },
+    yaxis: { gridcolor: "#e9e4d4", zeroline: false, title: { text: v.units, font: { size: 11 } }, tickfont: { family: "Space Mono, monospace", size: 10 } },
+    shapes: [{ type: "line", x0: cur, x1: cur, yref: "paper", y0: 0, y1: 1, line: { color: "#2443d6", width: 2 } }],
+    annotations: fin(base) ? [{ xref: "paper", x: 1, y: base, xanchor: "right", yanchor: "bottom", text: "2000–04 average", showarrow: false, font: { size: 10, color: "#62677d" } }] : [],
+  };
+  if (fin(base)) layout.shapes.push({ type: "line", xref: "paper", x0: 0, x1: 1, y0: base, y1: base, line: { color: "#8a8fa6", width: 1.2, dash: "dash" } });
+  const traces = [
+    { x: ys, y: vals, type: "scatter", mode: "lines+markers", connectgaps: false, line: { color: "#2443d6", width: 2 }, marker: { size: 6, color: "#fff", line: { color: "#2443d6", width: 1.5 } },
+      hovertemplate: `%{x}: %{y:.3g} ${v.units}<extra></extra>` },
+    { x: [cur], y: [fin(cv) ? cv : null], type: "scatter", mode: "markers", marker: { size: 13, color: "#b5ec7a", line: { color: ink, width: 2 } }, hoverinfo: "skip" },
+  ];
+  Plotly.react("r-chart", traces, layout, { displayModeBar: false, responsive: true });
+  $("chart-title").textContent = `${v.name}, year by year`;
+  const ds = dsOf(v), gaps = vals.filter((x) => x === null).length;
+  $("r-chart-src").innerHTML = `Annual average of monthly ${shortName(v)} · ${ds.name} · area average${gaps ? ` · ${gaps} year${gaps > 1 ? "s" : ""} with too many missing months shown as gaps` : ""}${v.id === "ndvi" ? " · regional vegetation reading: all plants, not only pines" : ""}${v.lowConfidence ? " · low-confidence model variable" : ""}.`;
+}
+function pause() { clearInterval(RP.timer); RP.timer = null; const b = $("play"); b.innerHTML = "▶ Play"; b.setAttribute("aria-pressed", "false"); }
+function play() {
+  if (RP.k >= RP.r.years.length - 1) setYear(0);
+  const b = $("play"); b.innerHTML = "❚❚ Pause"; b.setAttribute("aria-pressed", "true");
+  RP.timer = setInterval(() => { if (RP.k >= RP.r.years.length - 1) return pause(); setYear(RP.k + 1); }, 1000);
+}
+$("play").onclick = () => (RP.timer ? pause() : play());
+$("scrub").oninput = (e) => { pause(); setYear(+e.target.value - REPLAY_FROM); };
+$("r-var").onchange = (e) => { RP.varId = e.target.value; setYear(RP.k, true); };
+$("to-verdict").onclick = () => { pause(); show("verdict"); renderVerdict(); };   // show first: charts need their on-screen width
+
+/* ======================================================================
+   7. Verdict — what happened, why, and how sure we are
+   ====================================================================== */
+function trendWord(d) { const up = d.result.mannKendall.senSlopePerDecade > 0; return d.sig ? (up ? "Rising" : "Falling") : (up ? "Slightly rising — not proven" : "Slightly falling — not proven"); }
+function renderVerdict() {
+  const r = RP.r, reg = regionById(r.regionId), verdict = verdictOf(r), D = DATA[r.regionId], R = D.rules, clue = RP.clueId && varById(RP.clueId);
+  // the most informative trends: FDR-significant first (lowest q), then the rest; the pinned clue is always shown
+  let picks = VARS.filter((v) => D[v.id]).sort((a, b) => (D[b.id].sig - D[a.id].sig) || (D[a.id].q - D[b.id].q)).slice(0, 3).map((v) => v.id);
+  if (clue && D[clue.id] && !picks.includes(clue.id)) picks = [clue.id, ...picks.slice(0, 2)];
+  else if (clue && picks.includes(clue.id)) picks = [clue.id, ...picks.filter((x) => x !== clue.id)];
+  const trendCard = (id) => {
+    const v = varById(id), d = D[id], mk = d.result.mannKendall, up = mk.senSlopePerDecade > 0, b = baseline(r.regionId, id), last = yearVal(r.regionId, id, LAST_YEAR);
+    const cc = CROSSCHECK[r.regionId] && CROSSCHECK[r.regionId][id];
+    return `<div class="trend">
+      <div class="t-top"><h4>${v.name}</h4>${id === RP.clueId ? `<span class="fact clue">📌 Your clue</span>` : ""}</div>
+      <div class="big ${d.sig ? (up ? "up" : "down") : ""}">${trendWord(d)}</div>
+      <div class="then-now">${up ? "+" : "−"}${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade · monthly record ${FIRST_YEAR}–${LAST_YEAR}<br>2000–04 average ${valTxt(b, v)} → ${LAST_YEAR}: ${valTxt(last, v)}</div>
+      <p class="stat">${d.sig
+        ? `<b>Statistically significant.</b> Mann-Kendall trend test (seasons removed, corrected for month-to-month persistence): ${pTxt(mk.p)}. After correcting for all ${NTESTS} trend tests in this game: ${qTxt(d.q)}. Very unlikely to be chance.`
+        : `<b>Not statistically significant</b> (${pTxt(mk.p)}; ${qTxt(d.q)} after correcting for all ${NTESTS} trend tests). Read the direction as a description, not a proven trend.`}
+        ${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p>
+      ${cc ? `<div class="note ${cc[0] === "ok" ? "note-ok" : cc[0] === "bad" ? "note-bad" : ""}"><b>${cc[0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${cc[1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+      <div class="chart" id="vchart-${id}" role="img" aria-label="${v.name} at ${reg.name}: monthly differences from normal, ${FIRST_YEAR}–${LAST_YEAR}, with the straight-line trend"></div>
+      <p class="src">Chart: monthly difference from normal (${v.units}) with the straight-line trend · ${dsOf(v).name}.</p>
+    </div>`;
+  };
+  // ranking under the game's model (same rule, same records, every playable site)
+  const all = REGIONS.filter((x) => x.playable).map((x) => replay(x.id)).sort((a, b) => a.total - b.total);
+  const posOf = (o) => all.findIndex((x) => x.total === o.total) + 1;
+  const rankItem = (o) => {
+    const rg = regionById(o.regionId), RR = DATA[o.regionId].rules, ties = all.filter((x) => x !== o && x.total === o.total).map((x) => regionById(x.regionId).name);
+    const lines = RULES.filter((x) => RR.avail[x.id]).map((x) => ({ x, n: o.years.filter((y) => y.on.includes(x)).length })).filter((c) => c.n)
+      .sort((a, b) => b.n * TIER_WEIGHT[b.x.tier] - a.n * TIER_WEIGHT[a.x.tier]);
+    const quiet = RULES.filter((x) => RR.avail[x.id] && !o.years.some((y) => y.on.includes(x))).map((x) => x.id);
+    const noEval = RULES.filter((x) => !RR.avail[x.id]).map((x) => x.id);
+    const missingVars = VARS.filter((v) => !DATA[o.regionId][v.id]).map((v) => v.name.toLowerCase());
+    return `<li class="${o.regionId === r.regionId ? "mine" : ""}"><details>
+      <summary><span class="pos">${posOf(o)}</span><span class="nm">${rg.home ? "🏠 " : ""}${rg.name}${o.regionId === r.regionId ? " 🌲 yours" : ""}<small>${verdictOf(o).short}${ties.length ? " · tied" : ""}</small></span>
+        <span class="score">${o.total.toFixed(1)} stress · ${o.strongYears} strong yrs</span></summary>
+      <div class="why">
+        ${lines.length ? `<p>What drove the score (years fired × tier weight):</p><ul>${lines.map((c) => `<li>${tierTag(c.x.tier, false)}${c.x.id} ${c.x.name}: ${c.n} year${c.n > 1 ? "s" : ""} × ${TIER_WEIGHT[c.x.tier]} = ${(c.n * TIER_WEIGHT[c.x.tier]).toFixed(1)}</li>`).join("")}</ul>` : `<p>No stress signal fired here in ${REPLAY_FROM}–${REPLAY_TO}.</p>`}
+        ${quiet.length ? `<p>Checked, never fired: ${quiet.join(", ")}.</p>` : ""}
+        ${noEval.length ? `<p>Not evaluated (data missing): ${noEval.join(", ")}.</p>` : ""}
+        ${missingVars.length ? `<p>Missing evidence: ${missingVars.join(", ")} — not used in the score.</p>` : ""}
+        ${ties.length ? `<p>Tied with ${ties.join(", ")} (same score).</p>` : ""}
+        <p>Main pressure: ${o.main || "—"}.</p>
+      </div></details></li>`;
+  };
+  // key years: observed stress signals and simulated condition changes
+  const ev = [];
+  r.years.forEach((y, i) => {
+    const prev = i ? BAND(r.years[i - 1].vigour) : BAND(1), now = BAND(y.vigour);
+    const obs = y.on, sim = now !== prev ? { from: prev, to: now, pct: Math.round(y.vigour * 100) } : null;
+    if (obs.length || sim) ev.push({ y: y.y, obs, sim });
+  });
+  const evItem = (e) => `<li id="ev-${e.y}"><div class="yr">${e.y}</div><div class="what">
+      ${e.obs.map((x) => `<p><span class="obs-label">Observed · NASA records</span> ${tierTag(x.tier)}<b>${x.id} ${x.name}</b> — ${x.test}.</p><p class="why">Why it matters: ${x.effect} <span class="src">${srcLinks(x.src)}</span></p>`).join("")}
+      ${e.sim ? `<p><span class="sim-label">Simulated</span> The game's tree went from “${e.sim.from}” to “${e.sim.to}” (${e.sim.pct}% canopy condition).</p><p class="why">Why it matters: the model lowers condition after stress signals and lets it recover a little in each calm year — a visual aid, not a forecast.</p>` : ""}
+    </div></li>`;
+  const firedRules = [...new Set(r.years.flatMap((y) => y.on))];
+  const researchRules = firedRules.length ? firedRules : RULES.filter((x) => ["T1", "W4"].includes(x.id));
   const eviTxt = !fin(r.evi0.a) || r.evi0.n < 2 ? `<p>Not enough stress years with greenness data to check this region against the satellite.</p>`
     : `<p>In the ${r.evi0.n} strong-stress years, growing-season greenness here was <b>${r.evi0.a < r.evi0.b ? "lower" : "not lower"}</b> than in calm years (${(r.evi0.a - r.evi0.b >= 0 ? "+" : "") + (r.evi0.a - r.evi0.b).toFixed(3)} same year; ${fin(r.evi1.a) ? (r.evi1.a - r.evi1.b >= 0 ? "+" : "") + (r.evi1.a - r.evi1.b).toFixed(3) : "—"} the year after, in ${varById("ndvi").units} units). One region alone is too small a sample for a significance test — see the pooled test below.</p>`;
-  const pooled = RULES.map((x) => { const s = ruleSupport(x.id); return `<li>${tierTag(x.tier)}<b>${x.id}</b> ${x.name}: <span class="${s.cls}-t">${s.txt}</span></li>`; }).join("");
-  const others = REGIONS.filter((x) => x.playable).map((x) => replay(x.id)).sort((a, b) => a.total - b.total);
-  const lowest = others[0].total, bests = others.filter((o) => o.total === lowest).map((o) => regionById(o.regionId).name);
-  const mineBest = others.filter((o) => o.total === lowest).some((o) => o.regionId === r.regionId);
+  const clueTxt = !clue ? `You didn't pin a clue — the evidence speaks for itself.`
+    : !r.main ? `Your key clue was <b>${clue.name.toLowerCase()}</b>, and no strong stress signal fired here — your call held up.`
+    : (r.main === "water" ? ["rain", "potevap", "soil"] : ["temp"]).includes(clue.id) ? `🕵️ <b>Sharp work, detective.</b> Your key clue — ${clue.name.toLowerCase()} — feeds the ${r.main} signals that dominated this case.`
+    : `Your key clue was <b>${clue.name.toLowerCase()}</b>, but the dominant stress here was <b>${r.main}</b>, read from the ${(r.main === "water" ? ["rain", "potevap", "soil"] : ["temp"]).map((v) => varById(v).name.toLowerCase()).join(", ")} records.`;
+  const pct = (i) => ((i - REPLAY_FROM) / (REPLAY_TO - REPLAY_FROM)) * 100;
   $("report").innerHTML = `
-    <div class="folder spaced">
-      <div class="tab">CASE REPORT</div>
-      <div class="body">
-        <article class="sheet dots report" aria-labelledby="case-closed">
-          <div class="report-head">
-            <div><div class="kicker">${reg.name} · 2005–2024</div><h2 class="h-type" id="case-closed">Case closed</h2></div>
-            <span class="stamp big ${verdict.cls}">${verdict.word}</span>
-          </div>
-          <p class="summary">Strong stress signals (tier A or B) fired in <b class="ink">${r.strongYears} of 20 years</b>; any signal in ${r.anyYears}. ${r.main ? `The main pressure was <b>${r.main}</b>.` : ""} ${r.multi ? "There was at least one <b>multi-year drought</b> — the pattern linked to long-term decline." : ""}</p>
-          <section class="r-sec">
-            <h3>Stress signals that fired</h3>
-            ${fired ? `<ul class="rulelist">${fired}</ul>` : `<p>None of the research's stress signals fired here in 2005–2024.</p>`}
-            ${unavailable.length ? `<p class="src">Not evaluated (data missing): ${unavailable.join(", ")}.</p>` : ""}
-          </section>
-          <section class="r-sec">
-            <h3>Did real greenness agree?</h3>
-            ${eviTxt}
-            <p>Across all regions, tested against MODIS greenness (false-discovery-rate corrected):</p>
-            <ul class="rulelist">${pooled}</ul>
-          </section>
-          <section class="r-sec">
-            <h3>Your call</h3>
-            <p>${clueTxt}</p>
-            ${note ? `<p class="quote">“${note.replace(/</g, "&lt;")}”</p>` : ""}
-          </section>
-          <section class="r-sec">
-            <h3>How every region compares</h3>
-            <p>Same 20 years of real records. Ranked by tier-weighted stress (A = 1, B = 0.5, C = 0.2 per signal per year — the research's suggested starting weights).</p>
-            <div class="tablewrap" role="region" aria-label="Ranking of all regions" tabindex="0">
-            <table class="ranking"><thead><tr><th>#</th><th>Region</th><th>Outcome</th><th class="num">Strong-stress years</th><th class="num">Weighted stress</th><th>Main pressure</th></tr></thead><tbody>
-              ${others.map((o, i) => `<tr class="${o.regionId === r.regionId ? "mine" : ""}"><td>${i + 1}</td><td>${regionById(o.regionId).home ? "🏠 " : ""}${regionById(o.regionId).name}${o.regionId === r.regionId ? " 🌲 <b>yours</b>" : ""}</td><td>${verdictOf(o).short}</td><td class="num">${o.strongYears}</td><td class="num">${o.total.toFixed(1)}</td><td>${o.main || "—"}</td></tr>`).join("")}
-            </tbody></table>
-            </div>
-            <p class="scroll-hint" aria-hidden="true">← swipe the table →</p>
-            <p class="closing">${mineBest ? `🏆 You picked ${bests.length > 1 ? "one of the calmest regions" : "the calmest region"} for a Scots pine.` : `The calmest ${bests.length > 1 ? "regions were" : "region was"} <b>${bests.join(", ")}</b>.`}</p>
-          </section>
-          <div class="actions">
-            <button class="btn" id="reopen">Reopen the evidence <span class="arrow" aria-hidden="true">→</span></button>
-            <button class="btn ghost" id="newcase">New case</button>
-          </div>
-          <p class="src fineprint">What this is — and isn't: stress signals from published Scots pine studies, evaluated on NASA monthly records and tested against MODIS greenness (which covers all vegetation, not just pines). The research gives warning signs, not a pass/fail rule, so this is a stress record, not a forecast of whether a tree lives or dies. Not in the data: single frost nights, air dryness (VPD), CO₂, nitrogen, soil depth, slope, pests.</p>
-          <div class="corner"></div>
-        </article>
+    <div class="verdict-head">
+      <div><div class="kicker">Case report · ${reg.name} · ${REPLAY_FROM}–${REPLAY_TO}</div><h2 id="what-happened">What happened?</h2>
+        <div class="facts"><span class="fact">📍 ${reg.name}</span><span class="fact ${clue ? "clue" : ""}">${clue ? `📌 Your clue: ${clue.name}` : "No clue pinned"}</span><span class="fact">20 annual records</span></div></div>
+      <span class="stamp big thud ${verdict.cls}">${verdict.word}</span>
+    </div>
+    <p class="outcome">Under the game's model, your simulated Scots pine had <b>${verdict.word.toLowerCase()}</b>: strong stress signals (tier A or B) fired in <b>${r.strongYears} of 20 years</b>, any signal in ${r.anyYears}${r.main ? `, mainly from <b>${r.main}</b>` : ""}.${r.multi ? " There was at least one <b>multi-year drought</b> — the pattern linked to long-term decline." : ""}</p>
+    <p class="outcome sub">${clueTxt}</p>
+
+    <section class="v-sec"><h3>The clearest trends at this site</h3>
+      <p>Trend tests use the full monthly record ${FIRST_YEAR}–${LAST_YEAR} with the seasonal cycle removed, so a single hot summer or wet winter doesn't count as a trend. Hover the charts to inspect each month.</p>
+      <div class="trends">${picks.map(trendCard).join("")}</div>
+    </section>
+
+    <section class="v-sec"><h3>Key years</h3>
+      <p>Years when the NASA records crossed a research stress threshold (<span class="obs-label">observed</span>) or the game's tree changed condition (<span class="sim-label">simulated</span>).</p>
+      ${ev.length ? `<div class="events-axis" aria-hidden="true">${[2005, 2010, 2015, 2020, 2024].map((y) => `<span class="tick" style="left:${pct(y)}%">${y}</span>`).join("")}
+        ${ev.map((e) => `<a href="#ev-${e.y}" tabindex="-1" class="${e.obs.length && e.sim ? "both" : e.obs.length ? "obs" : "sim"}" style="left:${pct(e.y)}%" title="${e.y}"></a>`).join("")}</div>
+        <ol class="events">${ev.map(evItem).join("")}</ol>` : `<p>No stress signals fired and the simulated tree's condition never changed in ${REPLAY_FROM}–${REPLAY_TO}.</p>`}
+    </section>
+
+    <section class="v-sec"><h3>How the six sites compare</h3>
+      <p><b>Ranking rule (the game's model):</b> every year a research stress signal fires adds its tier weight — A = 1, B = 0.5, C = 0.2 (the research's suggested starting weights). Lower total = calmer. The same rules, the same 20 years and the same NASA records are used for every site. These are outcomes under the game's model, not a forecast. Open a site to see what drove its place.</p>
+      <ol class="rank-list">${all.map(rankItem).join("")}</ol>
+    </section>
+
+    <section class="v-sec"><h3>Did satellite greenness agree?</h3>
+      ${eviTxt}
+      <p>Across all regions, tested against MODIS greenness (false-discovery-rate corrected):</p>
+      <ul class="rulelist">${RULES.map((x) => { const s = ruleSupport(x.id); return `<li>${tierTag(x.tier)}<b>${x.id}</b> ${x.name}: <span class="${s.cls}-t">${s.txt}</span></li>`; }).join("")}</ul>
+    </section>
+
+    <section class="v-sec"><h3>What the research says</h3>
+      <div class="research">
+        <div><h4>Scots pine studies</h4><ul class="rulelist">${researchRules.map((x) => `<li>${tierTag(x.tier)}<b>${x.id} ${x.name}:</b> ${x.effect} <span class="src">${srcLinks(x.src)}</span></li>`).join("")}</ul></div>
+        <div><h4>Choosing a planting site</h4><p>Look at how often the bad years come — and whether they come back to back — not just the average climate. A site can look fine on average while drifting toward the conditions that stress the tree, so check the trend as well as today's numbers.</p></div>
       </div>
-    </div>`;
-  $("report").classList.remove("hidden");
-  $("reopen").onclick = () => show("board");
-  $("newcase").onclick = () => { state.visited = new Set(); state.selected = null; $("pick-note").value = ""; updateMarks();
-    $("dossier").innerHTML = `<div class="empty"><div class="big">Pick a region</div><p>Click a highlighted area on the map to open its file.</p></div>`; renderCall(); show("home"); };
-  setTimeout(() => $("report").scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    </section>
+
+    <details class="how"><summary>How this explanation works</summary><div class="how-body">
+      <h4>Data</h4><ul>
+        <li><a href="${DATASETS.gldas.url}" target="_blank" rel="noopener">${DATASETS.gldas.name}</a> — ${DATASETS.gldas.via}. Seven clues: ${VARS.filter((v) => v.id !== "ndvi").map((v) => `${v.name.toLowerCase()} (<code>${shortName(v)}</code>)`).join(", ")}.</li>
+        <li><a href="${DATASETS.modis.url}" target="_blank" rel="noopener">${DATASETS.modis.name}</a> — ${DATASETS.modis.via}. ${varById("ndvi").name}: a regional vegetation reading.</li>
+        <li>Variable definitions: <a href="${GLOSSARY_URL}" target="_blank" rel="noopener">Giovanni variable glossary</a>.</li>
+        <li>Coverage: six areas, values averaged over each area; monthly ${FIRST_YEAR}–${LAST_YEAR}; gaps are never filled. ${$("data-line").textContent}</li>
+        <li>Annual records = the mean of that year's monthly values, only when at least 10 of 12 months exist (otherwise shown as a gap). Baseline = mean of ${BASE_FROM}–${BASE_TO}.</li></ul>
+      <h4>Trend tests</h4><p>Seasonal cycle removed; Mann-Kendall test with the Hamed-Rao correction (12-month lag) and Sen's slope; Benjamini-Hochberg false-discovery-rate correction across all ${NTESTS} trend tests; least-squares trend with 95% interval as a second check.</p>
+      <h4>Stress rules</h4><ul class="rulelist">${RULES.map((x) => `<li>${tierTag(x.tier)}<b>${x.id} ${x.name}</b> — ${x.test}. <span class="src">${srcLinks(x.src)}</span></li>`).join("")}</ul>
+      <h4>Simulated tree</h4><p>Each year, canopy condition = previous condition − 0.35 × (tier-weighted stress) + 0.12, kept between 15% and 100%; growth adds up to one unit per year, less in stressed years. It only visualises the stress signals — it is not a survival forecast.</p>
+      <h4>Who writes this text</h4><p>No AI model is connected. Every sentence on this page is assembled by fixed rules in the game's code from numbers the code computes from the records above.</p>
+      <h4>Sources</h4><ul>${Object.entries(SOURCES).map(([k, s]) => `<li><b>${k}</b> <a href="${s.url}" target="_blank" rel="noopener">${s.cite}</a></li>`).join("")}<li>Temperature cross-check: <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Copernicus, European State of the Climate 2025</a></li></ul>
+    </div></details>
+
+    <div class="actions">
+      <button class="btn" id="again">Try another site <span class="arrow" aria-hidden="true">→</span></button>
+    </div>
+    <p class="src fineprint">What this is — and isn't: stress signals from published Scots pine studies, evaluated on NASA monthly records and tested against MODIS greenness (which covers all vegetation, not just pines). The research gives warning signs, not a pass/fail rule, so this is a stress record, not a forecast of whether a tree lives or dies. Not in the data: single frost nights, air dryness (VPD), CO₂, nitrogen, soil depth, slope, pests.</p>
+    <div class="corner"></div>`;
+  picks.forEach((id) => drawTrend(D[id], varById(id), `vchart-${id}`));
+  $("again").onclick = () => { state.locked = null; show("board"); renderMap(); if (state.selected) renderPanel(); updatePlant(); };
+}
+function drawTrend(d, v, el) {
+  const res = d.result, mk = res.mannKendall, lin = res.linear, ink = "#1b2140";
+  const color = !d.sig ? "#a3a8ba" : mk.senSlopePerDecade > 0 ? C.rise : C.fall;
+  const t0 = new Date(d.dates[0]).getTime(), yrs = d.dates.map((x) => (new Date(x).getTime() - t0) / (365.25 * 864e5));
+  Plotly.react(el, [
+    { x: d.dates, y: res.anomalies.map((x) => (fin(x) ? x : null)), type: "scatter", mode: "lines", line: { color: C.anom, width: 1 }, hovertemplate: `%{x|%b %Y}: %{y:+.3g} ${v.units}<extra>vs normal</extra>` },
+    { x: d.dates, y: yrs.map((t) => lin.intercept + lin.slopePerYear * t), type: "scatter", mode: "lines", line: { color, width: 3 }, hoverinfo: "skip" },
+  ], {
+    margin: { l: 44, r: 6, t: 6, b: 26 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", showlegend: false, hovermode: "closest",
+    font: { family: "DM Sans, system-ui, sans-serif", size: 10, color: "#4c5272" }, hoverlabel: { bgcolor: ink, font: { color: "#fff" } },
+    xaxis: { showgrid: false, linecolor: ink, tickfont: { family: "Space Mono, monospace", size: 9 } },
+    yaxis: { gridcolor: "#e9e4d4", zeroline: false, tickfont: { family: "Space Mono, monospace", size: 9 }, title: { text: v.units, font: { size: 10 } } },
+    shapes: [{ type: "line", xref: "paper", x0: 0, x1: 1, y0: 0, y1: 0, line: { color: "#cfcab9", width: 1 } }],
+  }, { displayModeBar: false, responsive: true });
 }
 
 /* ======================================================================
    8. Start
    ====================================================================== */
 function boot(REAL) {
-  prepare(REAL);
+  prepare(REAL); buildAnnual();
   $("nodata").classList.add("hidden");
   $("board-body").classList.remove("hidden");
-  renderMap(); renderCall();
-  window.D2 = { DATA, REGIONS, RULES, replay, RULE_TEST: () => RULE_TEST };
+  map = { w: 0, h: 0 };   // rendered when the board is first shown (it needs its on-screen size)
+  window.D2 = { DATA, REGIONS, RULES, VARS, ANNUAL, baseline, yearVal, replay, RP, state, RULE_TEST: () => RULE_TEST };
 }
 function noData() {
   REGIONS.forEach((r) => (r.playable = false));
@@ -613,7 +773,7 @@ function noData() {
 }
 $("datafile").onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
-  try { const j = JSON.parse(await f.text()); if (!j.regions || !j.dates) throw new Error("not a game_data.json file"); boot(j); }
+  try { const j = JSON.parse(await f.text()); if (!j.regions || !j.dates) throw new Error("not a game_data.json file"); boot(j); renderMap(); }
   catch (err) { $("datafile-msg").textContent = `Couldn't read that file: ${err.message}`; }
 };
 (async function start() {
