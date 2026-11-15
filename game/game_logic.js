@@ -38,6 +38,8 @@ const SOURCES = {
 };
 const TIER_WEIGHT = { A: 1, B: 0.5, C: 0.2 };   // research's suggested starting weights — not a published value
 const TIER_TEXT = { A: "Scots pine, measured threshold", B: "Scots pine, direction only", C: "other species / general — context" };
+// tier badge markup: explanation appears on hover and on keyboard focus
+const tierTag = (t, focus = true) => `<span class="tier t${t}" role="img" aria-label="Evidence tier ${t}: ${TIER_TEXT[t]}" data-tip="Tier ${t} · ${TIER_TEXT[t]}"${focus ? ' tabindex="0"' : ""}>${t}</span>`;
 
 // Stress rules that monthly data can run. Definitions match pipeline/test_rules.py.
 const RULES = [
@@ -248,10 +250,10 @@ $("guide-toggle").onclick = () => {
   $("guide-toggle").setAttribute("aria-expanded", String(open));
   g.innerHTML = `
     <div>${PINE.loves.map((x) => `<span class="pill">✓ ${x}</span>`).join("")}${PINE.hates.map((x) => `<span class="pill bad">✗ ${x}</span>`).join("")}</div>
-    <p style="font-size:.85rem;color:var(--ink-soft);margin-top:10px"><b>Stress signals from the research.</b> These are warning signs measured in studies, not a pass/fail test. Each carries an evidence tier:
+    <p class="guide-txt"><b>Stress signals from the research.</b> These are warning signs measured in studies, not a pass/fail test. Each carries an evidence tier:
       <b>A</b> = Scots pine, measured threshold · <b>B</b> = Scots pine, direction only · <b>C</b> = other species, context only.</p>
-    <ul class="rulelist">${RULES.map((r) => `<li><span class="tier t${r.tier}">${r.tier}</span><b>${r.id} ${r.name}</b> — ${r.test}. <span class="src">${srcLinks(r.src)}</span></li>`).join("")}</ul>
-    <p class="src" style="margin-top:8px">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
+    <ul class="rulelist">${RULES.map((r) => `<li>${tierTag(r.tier)}<b>${r.id} ${r.name}</b> — ${r.test}. <span class="src">${srcLinks(r.src)}</span></li>`).join("")}</ul>
+    <p class="src">Can't be checked with monthly data: single frost nights (T2, T3) and air dryness (A1, vapour-pressure deficit). Not in our data: CO₂, nitrogen, soil depth, slope, pests — all matter in real forests.</p>`;
 };
 
 /* ======================================================================
@@ -333,12 +335,12 @@ function updateMarks() {
 function openRegion(id) { state.selected = id; state.visited.add(id); updateMarks(); renderDossier(); renderCall(); }
 
 function ruleStrip(R, r) {
-  return `<div class="strip" title="${r.id}: years it fired">${YEARS.map((y, i) => `<i class="${R.fired[r.id][i] ? "on t" + r.tier : ""}" title="${y}${R.fired[r.id][i] ? " — fired" : ""}"></i>`).join("")}</div>`;
+  return `<div class="strip" title="${r.id}: years it fired">${YEARS.map((y, i) => `<i class="${R.fired[r.id][i] ? "on t" + r.tier : ""}" title="${y}${R.fired[r.id][i] ? " — fired" : ""}"></i>`).join("")}</div><div class="strip-axis" aria-hidden="true"><span>${FIRST_YEAR}</span><span>${YEARS[12]}</span><span>${LAST_YEAR}</span></div>`;
 }
 function ruleCard(R, r) {
   const n = R.fired[r.id].filter(Boolean).length, sup = ruleSupport(r.id);
   return `<div class="rulecard">
-    <div class="rc-head"><span class="tier t${r.tier}" title="${TIER_TEXT[r.tier]}">${r.tier}</span><b>${r.id} · ${r.name}</b><span class="rc-n">${n} of ${YEARS.length} years</span></div>
+    <div class="rc-head">${tierTag(r.tier)}<b>${r.id} · ${r.name}</b><span class="rc-n">${n} of ${YEARS.length} years</span></div>
     <div class="rc-test">${r.test}</div>
     ${ruleStrip(R, r)}
     <div class="rc-foot">${r.effect} <span class="src">Source ${srcLinks(r.src)} · tier ${r.tier} (${TIER_TEXT[r.tier]}) · <span class="${sup.cls}-t">${sup.txt}</span></span></div>
@@ -357,27 +359,31 @@ function renderDossier() {
   const word = d.sig ? (up ? "Rising" : "Falling") : (up ? "Slightly rising — not proven" : "Slightly falling — not proven");
   const R = D.rules;
   const myRules = R ? RULES.filter((r) => r.vars.includes(v.id) && R.avail[r.id]) : [];
-  const allFired = R ? RULES.filter((r) => R.avail[r.id]).map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}"><span class="tier t${r.tier}">${r.tier}</span>${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length}</span>`).join("") : "";
+  const allFired = R ? RULES.filter((r) => R.avail[r.id]).map((r) => `<span class="chip ${R.fired[r.id].some(Boolean) ? "on" : ""}">${tierTag(r.tier, false)}${r.id} ${r.name} · ${R.fired[r.id].filter(Boolean).length}</span>`).join("") : "";
   $("dossier").innerHTML = `
-    <div>
-      <div class="kicker" style="font-size:.68rem">Region file${reg.home ? " · 🏠 home" : ""}</div>
-      <h2 style="margin-top:6px">${reg.name}</h2>
-      <p style="color:var(--ink-soft);margin-top:4px">${reg.desc}</p>
+    <div class="d-head">
+      <div class="label">Region file${reg.home ? " · 🏠 home" : ""}</div>
+      <h2>${reg.name}</h2>
+      <p class="desc">${reg.desc}</p>
       <div class="meta">AREA ${lat(reg.bbox[1])}–${lat(reg.bbox[3])} · ${lon(reg.bbox[0])}–${lon(reg.bbox[2])} · VALUES AVERAGED OVER THE AREA</div>
     </div>
-    ${R ? `<div><div class="kicker" style="font-size:.66rem;margin-bottom:6px">Stress signals 2000–2024 (years fired)</div><div class="chips">${allFired}</div></div>` : ""}
-    <div class="cluetabs" role="tablist">
+    ${R ? `<div class="dsec"><div class="label">Stress signals 2000–2024 (years fired)</div><div class="chips">${allFired}</div></div>` : ""}
+    <div class="dsec">
+    <div class="label" id="clues-label">Clues on file</div>
+    <div class="cluetabs" role="tablist" aria-labelledby="clues-label">
       ${VARS.map((x) => `<button role="tab" data-var="${x.id}" class="${x.key ? "key" : ""}" aria-selected="${x.id === v.id}" ${D[x.id] ? "" : "disabled title='No data on file'"}>${x.name}${D[x.id] ? "" : " · no data"}</button>`).join("")}
     </div>
-    <div class="legend-line"><i></i>Black-edged clues feed the research's stress signals. The others are supporting clues.</div>
+    <div class="legend-line"><i aria-hidden="true"></i>Black-edged clues feed the research's stress signals. The others are supporting clues.</div>
     <div>
       <div class="chart-head"><h3>${state.showRaw ? "Monthly records" : "Seasons removed — is there a trend?"}</h3>
         <label class="toggle"><input type="checkbox" id="raw" ${state.showRaw ? "checked" : ""}/> raw records</label></div>
       <div class="chart" id="chart"></div>
       <div class="src">${v.def} SOURCE: ${v.source}${q ? ` · ${q.points_used ? q.points_used + " GRID POINTS · " : ""}${q.months_total - q.months_missing}/${q.months_total} MONTHS${q.months_missing ? " (GAPS LEFT EMPTY)" : ""}${q.values_removed ? ` · ${q.values_removed} IMPOSSIBLE VALUES REMOVED` : ""}` : ""}</div>
     </div>
+    </div>
+    <div class="dsec">
     <div class="finding">
-      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}" style="flex:none;margin-top:4px">${d.sig ? "Significant" : "Not proven"}</span>
+      <span class="stamp ${d.sig ? (up ? "rise" : "fall") : "grey"}">${d.sig ? "Significant" : "Not proven"}</span>
       <div class="txt"><strong>${word}</strong><p>${v.name} ${up ? "rose" : "fell"} by about ${fmt(Math.abs(mk.senSlopePerDecade))} ${v.units} per decade. ${pTxt(mk.p)}; after correcting for all ${NTESTS} trend tests on this site (false discovery rate) ${qTxt(d.q)} — ${d.sig ? "still significant." : "not significant."}${v.lowConfidence ? " ⚠ Low-confidence model variable." : ""}</p></div>
     </div>
     <div class="tests">
@@ -390,12 +396,14 @@ function renderDossier() {
         <dt>95% range</dt><dd>${signed(lin.slopePerDecade - lin.ciPerDecade, lin.slopePerDecade)} to ${signed(lin.slopePerDecade + lin.ciPerDecade, lin.slopePerDecade)}</dd>
         <dt>Evidence</dt><dd>${pTxt(lin.p)}</dd></dl></div>
     </div>
-    ${CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id] ? `<div class="note" style="${CROSSCHECK[reg.id][v.id][0] === "ok" ? "background:#eef8e2;border-color:#cfe9b0" : CROSSCHECK[reg.id][v.id][0] === "bad" ? "background:#fdeeea;border-color:#f2cdc4" : ""}"><b>${CROSSCHECK[reg.id][v.id][0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${CROSSCHECK[reg.id][v.id][1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
+    ${CROSSCHECK[reg.id] && CROSSCHECK[reg.id][v.id] ? `<div class="note ${CROSSCHECK[reg.id][v.id][0] === "ok" ? "note-ok" : CROSSCHECK[reg.id][v.id][0] === "bad" ? "note-bad" : ""}"><b>${CROSSCHECK[reg.id][v.id][0] === "ok" ? "✓" : "⚠"} Cross-check:</b> ${CROSSCHECK[reg.id][v.id][1]} <a href="${CROSSCHECK_URL}" target="_blank" rel="noopener">Source</a></div>` : ""}
     ${res.testsDisagree ? `<div class="note"><b>The two tests disagree.</b> Months are "sticky" — a dry month is often followed by another — so the straight-line test can be over-confident. Mann-Kendall is corrected for this; trust it more.</div>` : ""}
-    ${myRules.length ? `<div><div class="kicker" style="font-size:.66rem;margin-bottom:8px">Pine stress signals that use this clue</div>${myRules.map((r) => ruleCard(R, r)).join("")}</div>`
-      : `<div class="note" style="background:#f4f6ff;border-color:#d5ddff">🔎 Supporting clue — no stress rule uses it directly. ${v.id === "ndvi" ? "Greenness is how we TEST the rules: if a rule matters, greenness should dip in the years it fires." : v.id === "evap" ? "The research gives evaporation low weight (E1): context for the water balance." : v.id === "sun" ? "The research gives no sunlight threshold (L1): Scots pine needs full sun, but light rarely limits it in Europe." : "Topsoil reacts before the root zone does."}</div>`}`;
-  $("dossier").querySelectorAll(".cluetabs button").forEach((b) => (b.onclick = () => { state.varId = b.dataset.var; renderDossier(); }));
-  $("raw").onchange = (e) => { state.showRaw = e.target.checked; renderDossier(); };
+    </div>
+    ${myRules.length ? `<div class="dsec"><div class="label">Pine stress signals that use this clue</div><div class="rulecards">${myRules.map((r) => ruleCard(R, r)).join("")}</div></div>`
+      : `<div class="dsec"><div class="note note-info">🔎 Supporting clue — no stress rule uses it directly. ${v.id === "ndvi" ? "Greenness is how we TEST the rules: if a rule matters, greenness should dip in the years it fires." : v.id === "evap" ? "The research gives evaporation low weight (E1): context for the water balance." : v.id === "sun" ? "The research gives no sunlight threshold (L1): Scots pine needs full sun, but light rarely limits it in Europe." : "Topsoil reacts before the root zone does."}</div></div>`}`;
+  // after a re-render, put focus back on the control that was used (keyboard users keep their place)
+  $("dossier").querySelectorAll(".cluetabs button").forEach((b) => (b.onclick = () => { state.varId = b.dataset.var; renderDossier(); const nb = $("dossier").querySelector(`.cluetabs button[data-var="${state.varId}"]`); if (nb) nb.focus({ preventScroll: true }); }));
+  $("raw").onchange = (e) => { state.showRaw = e.target.checked; renderDossier(); $("raw").focus({ preventScroll: true }); };
   drawChart(d, v);
 }
 
@@ -403,10 +411,12 @@ function drawChart(d, v) {
   const res = d.result, mk = res.mannKendall, lin = res.linear;
   const color = !d.sig ? C.muted : mk.senSlopePerDecade > 0 ? C.rise : C.fall;
   const layout = {
-    margin: { l: 52, r: 10, t: 6, b: 28 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-    font: { family: "DM Sans, sans-serif", size: 11, color: "#4c5272" }, showlegend: false, hovermode: "x unified",
-    xaxis: { showgrid: false, linecolor: "#cfcab9" },
-    yaxis: { gridcolor: "#ebe7da", zeroline: false, title: { text: state.showRaw ? v.units : `vs normal (${v.units})` } },
+    margin: { l: 52, r: 8, t: 8, b: 30 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "DM Sans, system-ui, sans-serif", size: 11, color: "#4c5272" }, showlegend: false, hovermode: "x unified",
+    hoverlabel: { bgcolor: "#1b2140", bordercolor: "#1b2140", font: { family: "DM Sans, system-ui, sans-serif", color: "#fff", size: 12 } },
+    xaxis: { showgrid: false, linecolor: "#1b2140", linewidth: 1.5, ticks: "outside", tickcolor: "#1b2140", ticklen: 4, tickfont: { family: "Space Mono, ui-monospace, monospace", size: 10 } },
+    yaxis: { gridcolor: "#e9e4d4", griddash: "dot", zeroline: false, tickfont: { family: "Space Mono, ui-monospace, monospace", size: 10 },
+      title: { text: state.showRaw ? v.units : `vs normal (${v.units})`, font: { size: 11 } } },
   };
   const t0 = new Date(d.dates[0]).getTime();
   const yrs = d.dates.map((x) => (new Date(x).getTime() - t0) / (365.25 * 864e5));
@@ -485,6 +495,7 @@ function startReplay(regionId, clueId, note) {
   const step = () => { k++; drawYear(r, k); if (k < r.years.length - 1) timer = setTimeout(step, 520); else finishCase(r, clueId, note); };
   $("skip").onclick = () => { clearTimeout(timer); while (k < r.years.length - 1) { k++; drawYear(r, k); } finishCase(r, clueId, note); };
   drawYear(r, -1);
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { $("skip").onclick(); return; }
   timer = setTimeout(step, 600);
 }
 
@@ -508,7 +519,7 @@ function drawYear(r, k) {
   $("readout").innerHTML = `<tr><th>${yr.y}</th><th>Stress signal</th><th>Tier</th><th>Source</th></tr>` +
     (k < 0 ? `<tr><td colspan="4" class="src">Planting…</td></tr>`
       : !yr.on.length ? `<tr><td></td><td class="ok-t">No stress signal this year</td><td></td><td></td></tr>`
-      : yr.on.map((x) => `<tr><td>${x.id}</td><td>${x.name}</td><td><span class="tier t${x.tier}">${x.tier}</span></td><td class="src">${srcLinks(x.src)}</td></tr>`).join(""));
+      : yr.on.map((x) => `<tr><td>${x.id}</td><td>${x.name}</td><td>${tierTag(x.tier, false)}</td><td class="src">${srcLinks(x.src)}</td></tr>`).join(""));
 }
 
 function finishCase(r, clueId, note) {
@@ -518,7 +529,7 @@ function finishCase(r, clueId, note) {
     return { x, yrs };
   });
   const fired = counts.filter((c) => c.yrs.length).map((c) =>
-    `<li><span class="tier t${c.x.tier}">${c.x.tier}</span><b>${c.x.id} ${c.x.name}</b> — ${c.yrs.length} of 20 years (${c.yrs.join(", ")}). ${c.x.effect} <span class="src">${srcLinks(c.x.src)}</span></li>`).join("");
+    `<li>${tierTag(c.x.tier)}<b>${c.x.id} ${c.x.name}</b> — ${c.yrs.length} of 20 years (${c.yrs.join(", ")}). ${c.x.effect} <span class="src">${srcLinks(c.x.src)}</span></li>`).join("");
   const unavailable = RULES.filter((x) => !R.avail[x.id]).map((x) => x.id);
   const mainVars = r.main === "water" ? ["rain", "potevap", "soil"] : r.main === "temperature" ? ["temp"] : [];
   const clueTxt = !r.main
@@ -527,41 +538,52 @@ function finishCase(r, clueId, note) {
     : `Your key clue was <b>${clue.name.toLowerCase()}</b>, but the dominant stress here was <b>${r.main}</b>, read from the ${mainVars.map((v) => varById(v).name.toLowerCase()).join(", ")} records.`;
   const eviTxt = !fin(r.evi0.a) || r.evi0.n < 2 ? `<p>Not enough stress years with greenness data to check this region against the satellite.</p>`
     : `<p>In the ${r.evi0.n} strong-stress years, growing-season greenness here was <b>${r.evi0.a < r.evi0.b ? "lower" : "not lower"}</b> than in calm years (${(r.evi0.a - r.evi0.b >= 0 ? "+" : "") + (r.evi0.a - r.evi0.b).toFixed(3)} same year; ${fin(r.evi1.a) ? (r.evi1.a - r.evi1.b >= 0 ? "+" : "") + (r.evi1.a - r.evi1.b).toFixed(3) : "—"} the year after, in ${varById("ndvi").units} units). One region alone is too small a sample for a significance test — see the pooled test below.</p>`;
-  const pooled = RULES.map((x) => { const s = ruleSupport(x.id); return `<li><span class="tier t${x.tier}">${x.tier}</span><b>${x.id}</b> ${x.name}: <span class="${s.cls}-t">${s.txt}</span></li>`; }).join("");
+  const pooled = RULES.map((x) => { const s = ruleSupport(x.id); return `<li>${tierTag(x.tier)}<b>${x.id}</b> ${x.name}: <span class="${s.cls}-t">${s.txt}</span></li>`; }).join("");
   const others = REGIONS.filter((x) => x.playable).map((x) => replay(x.id)).sort((a, b) => a.total - b.total);
   const lowest = others[0].total, bests = others.filter((o) => o.total === lowest).map((o) => regionById(o.regionId).name);
   const mineBest = others.filter((o) => o.total === lowest).some((o) => o.regionId === r.regionId);
   $("report").innerHTML = `
-    <div class="folder" style="margin-top:70px">
+    <div class="folder spaced">
       <div class="tab">CASE REPORT</div>
       <div class="body">
-        <article class="sheet dots report">
+        <article class="sheet dots report" aria-labelledby="case-closed">
           <div class="report-head">
-            <div><div class="kicker">${reg.name} · 2005–2024</div><h2 class="assign" style="margin:10px 0 0">Case closed</h2></div>
+            <div><div class="kicker">${reg.name} · 2005–2024</div><h2 class="h-type" id="case-closed">Case closed</h2></div>
             <span class="stamp big ${verdict.cls}">${verdict.word}</span>
           </div>
-          <p style="margin-top:12px">Strong stress signals (tier A or B) fired in <b style="color:var(--ink)">${r.strongYears} of 20 years</b>; any signal in ${r.anyYears}. ${r.main ? `The main pressure was <b>${r.main}</b>.` : ""} ${r.multi ? "There was at least one <b>multi-year drought</b> — the pattern linked to long-term decline." : ""}</p>
-          <h3>Stress signals that fired</h3>
-          ${fired ? `<ul class="rulelist">${fired}</ul>` : `<p>None of the research's stress signals fired here in 2005–2024.</p>`}
-          ${unavailable.length ? `<p class="src">Not evaluated (data missing): ${unavailable.join(", ")}.</p>` : ""}
-          <h3>Did real greenness agree?</h3>
-          ${eviTxt}
-          <p style="margin-bottom:4px">Across all regions, tested against MODIS greenness (false-discovery-rate corrected):</p>
-          <ul class="rulelist">${pooled}</ul>
-          <h3>Your call</h3>
-          <p>${clueTxt}</p>
-          ${note ? `<p style="margin-top:6px;font-family:var(--type);color:var(--ink)">“${note.replace(/</g, "&lt;")}”</p>` : ""}
-          <h3>How every region compares</h3>
-          <p style="margin-bottom:8px">Same 20 years of real records. Ranked by tier-weighted stress (A = 1, B = 0.5, C = 0.2 per signal per year — the research's suggested starting weights).</p>
-          <table class="ranking"><tr><th>#</th><th>Region</th><th>Outcome</th><th>Strong-stress years</th><th>Weighted stress</th><th>Main pressure</th></tr>
-            ${others.map((o, i) => `<tr class="${o.regionId === r.regionId ? "mine" : ""}"><td>${i + 1}</td><td>${regionById(o.regionId).home ? "🏠 " : ""}${regionById(o.regionId).name}${o.regionId === r.regionId ? " 🌲 <b>yours</b>" : ""}</td><td>${verdictOf(o).short}</td><td>${o.strongYears}</td><td>${o.total.toFixed(1)}</td><td>${o.main || "—"}</td></tr>`).join("")}
-          </table>
-          <p style="margin-top:12px">${mineBest ? `🏆 You picked ${bests.length > 1 ? "one of the calmest regions" : "the calmest region"} for a Scots pine.` : `The calmest ${bests.length > 1 ? "regions were" : "region was"} <b>${bests.join(", ")}</b>.`}</p>
+          <p class="summary">Strong stress signals (tier A or B) fired in <b class="ink">${r.strongYears} of 20 years</b>; any signal in ${r.anyYears}. ${r.main ? `The main pressure was <b>${r.main}</b>.` : ""} ${r.multi ? "There was at least one <b>multi-year drought</b> — the pattern linked to long-term decline." : ""}</p>
+          <section class="r-sec">
+            <h3>Stress signals that fired</h3>
+            ${fired ? `<ul class="rulelist">${fired}</ul>` : `<p>None of the research's stress signals fired here in 2005–2024.</p>`}
+            ${unavailable.length ? `<p class="src">Not evaluated (data missing): ${unavailable.join(", ")}.</p>` : ""}
+          </section>
+          <section class="r-sec">
+            <h3>Did real greenness agree?</h3>
+            ${eviTxt}
+            <p>Across all regions, tested against MODIS greenness (false-discovery-rate corrected):</p>
+            <ul class="rulelist">${pooled}</ul>
+          </section>
+          <section class="r-sec">
+            <h3>Your call</h3>
+            <p>${clueTxt}</p>
+            ${note ? `<p class="quote">“${note.replace(/</g, "&lt;")}”</p>` : ""}
+          </section>
+          <section class="r-sec">
+            <h3>How every region compares</h3>
+            <p>Same 20 years of real records. Ranked by tier-weighted stress (A = 1, B = 0.5, C = 0.2 per signal per year — the research's suggested starting weights).</p>
+            <div class="tablewrap" role="region" aria-label="Ranking of all regions" tabindex="0">
+            <table class="ranking"><thead><tr><th>#</th><th>Region</th><th>Outcome</th><th class="num">Strong-stress years</th><th class="num">Weighted stress</th><th>Main pressure</th></tr></thead><tbody>
+              ${others.map((o, i) => `<tr class="${o.regionId === r.regionId ? "mine" : ""}"><td>${i + 1}</td><td>${regionById(o.regionId).home ? "🏠 " : ""}${regionById(o.regionId).name}${o.regionId === r.regionId ? " 🌲 <b>yours</b>" : ""}</td><td>${verdictOf(o).short}</td><td class="num">${o.strongYears}</td><td class="num">${o.total.toFixed(1)}</td><td>${o.main || "—"}</td></tr>`).join("")}
+            </tbody></table>
+            </div>
+            <p class="scroll-hint" aria-hidden="true">← swipe the table →</p>
+            <p class="closing">${mineBest ? `🏆 You picked ${bests.length > 1 ? "one of the calmest regions" : "the calmest region"} for a Scots pine.` : `The calmest ${bests.length > 1 ? "regions were" : "region was"} <b>${bests.join(", ")}</b>.`}</p>
+          </section>
           <div class="actions">
-            <button class="btn" id="reopen">Reopen the evidence <span class="arrow">→</span></button>
+            <button class="btn" id="reopen">Reopen the evidence <span class="arrow" aria-hidden="true">→</span></button>
             <button class="btn ghost" id="newcase">New case</button>
           </div>
-          <p class="src" style="margin-top:18px">What this is — and isn't: stress signals from published Scots pine studies, evaluated on NASA monthly records and tested against MODIS greenness (which covers all vegetation, not just pines). The research gives warning signs, not a pass/fail rule, so this is a stress record, not a forecast of whether a tree lives or dies. Not in the data: single frost nights, air dryness (VPD), CO₂, nitrogen, soil depth, slope, pests.</p>
+          <p class="src fineprint">What this is — and isn't: stress signals from published Scots pine studies, evaluated on NASA monthly records and tested against MODIS greenness (which covers all vegetation, not just pines). The research gives warning signs, not a pass/fail rule, so this is a stress record, not a forecast of whether a tree lives or dies. Not in the data: single frost nights, air dryness (VPD), CO₂, nitrogen, soil depth, slope, pests.</p>
           <div class="corner"></div>
         </article>
       </div>
