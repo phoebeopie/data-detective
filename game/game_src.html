@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>D² Detective — The Scots pine case</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Courier+Prime:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-basic-2.35.2.min.js"></script>
+<style>
+  /* ============================================================
+     D² Detective theme
+     ============================================================ */
+  :root {
+    --ink: #1b2140;          /* navy text */
+    --ink-soft: #4c5272;
+    --muted: #8a8fa6;
+    --blue: #2443d6;         /* D², stamps, kickers */
+    --blue-soft: #e9edff;
+    --lime: #b5ec7a;         /* buttons, swashes */
+    --lime-deep: #8fd14f;
+    --paper: #fcfaf3;
+    --manila: #ecdfbd;
+    --manila-tab: #f1e6c8;
+    --manila-edge: #d8c69a;
+    --line: #e5e2d8;
+    --rise: #2a8a5a;
+    --fall: #c2412d;
+    --amber: #d99a2b;
+    --serif: "Instrument Serif", "Didot", Georgia, serif;
+    --sans: "DM Sans", system-ui, sans-serif;
+    --type: "Courier Prime", "Courier New", monospace;
+    --mono: "Space Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); font: 16px/1.55 var(--sans); }
+  h1, h2, h3, p { margin: 0; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+  img { max-width: 100%; }
+
+  /* ---------- type helpers ---------- */
+  .kicker { font: 700 .78rem/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--blue); }
+  .display { font: italic 400 clamp(2.8rem, 6.5vw, 5.4rem)/1 var(--serif); letter-spacing: -.01em; }
+  .display .blue { color: var(--blue); }
+  .swash { position: relative; display: inline-block; z-index: 0; }
+  .swash::after { content: ""; position: absolute; left: -6%; right: -6%; bottom: .02em; height: .26em;
+    background: var(--lime); border-radius: 50%; transform: rotate(-2.5deg); z-index: -1; }
+  .lead { color: var(--ink-soft); font-size: 1.15rem; max-width: 640px; }
+  .typed { font-family: var(--type); }
+
+  /* ---------- buttons ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 14px; background: var(--lime); color: var(--ink);
+    border: 2px solid var(--ink); border-radius: 10px; padding: 12px 26px; font-weight: 700; font-size: 1.1rem;
+    box-shadow: 0 5px 0 var(--ink); transition: transform .08s, box-shadow .08s; }
+  .btn:hover { transform: translateY(1px); box-shadow: 0 4px 0 var(--ink); }
+  .btn:active { transform: translateY(5px); box-shadow: 0 0 0 var(--ink); }
+  .btn:disabled { background: #e7e9ee; color: var(--muted); border-color: #c9ccd6; box-shadow: 0 5px 0 #c9ccd6; cursor: not-allowed; transform: none; }
+  .btn .arrow { font-size: 1.3rem; line-height: 1; }
+  .btn.ghost { background: #fff; }
+  .linkish { background: none; border: 0; color: var(--blue); text-decoration: underline; text-underline-offset: 3px; padding: 0; }
+
+  /* ---------- header ---------- */
+  header { display: flex; align-items: center; gap: 14px; padding: 12px clamp(14px, 2.5vw, 28px);
+    border-bottom: 1px solid var(--line); background: #fff; position: sticky; top: 0; z-index: 30; }
+  .logo-tile { width: 42px; height: 42px; border-radius: 10px; background: var(--blue-soft); border: 1px solid #cdd6ff;
+    display: grid; place-items: center; }
+  .brand { font-weight: 700; font-size: 1.35rem; letter-spacing: -.01em; background: none; border: 0; padding: 0; }
+  .event { margin-left: auto; font: 700 .82rem var(--mono); letter-spacing: .2em; color: var(--ink-soft); }
+  .steps { display: flex; gap: 6px; margin-left: 18px; }
+  .steps span { font: 700 .68rem var(--mono); letter-spacing: .14em; padding: 5px 10px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); }
+  .steps span.on { color: var(--ink); background: var(--lime); border-color: var(--ink); }
+  @media (max-width: 860px) { .event, .steps { display: none; } }
+
+  main { max-width: 1240px; margin: 0 auto; padding: 0 clamp(14px, 3vw, 32px) 80px; }
+  section.screen { animation: fade .35s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- 1. home ---------- */
+  .hero { text-align: center; padding: 56px 0 30px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .hero .detective { width: min(330px, 70vw); margin: 4px 0 6px; }
+  .hero .lead { text-align: center; }
+
+  /* ---------- paper & folder ---------- */
+  .dots { background-color: var(--paper);
+    background-image: radial-gradient(rgba(27,33,64,.11) 1px, transparent 1.2px); background-size: 14px 14px; }
+  .folder { position: relative; margin-top: 46px; }
+  .folder .tab { position: absolute; top: -40px; left: 0; background: var(--manila-tab); border: 1px solid var(--manila-edge);
+    border-bottom: 0; border-radius: 12px 14px 0 0; padding: 10px 28px 12px; font: 700 .85rem var(--mono); letter-spacing: .2em; }
+  .folder .body { background-color: var(--manila);
+    background-image: radial-gradient(rgba(120,96,40,.14) 1px, transparent 1.2px); background-size: 12px 12px;
+    border: 1px solid var(--manila-edge); border-radius: 0 16px 16px 16px; padding: clamp(18px, 4vw, 54px);
+    box-shadow: 0 2px 0 var(--manila-edge), 0 18px 40px rgba(60,45,10,.12); }
+  .sheet { position: relative; border: 1px solid #e6e0cf; box-shadow: 0 1px 0 #e9e2cc, 0 10px 24px rgba(60,45,10,.10); padding: clamp(18px, 3vw, 40px); }
+  .sheet .corner { position: absolute; right: -1px; bottom: -1px; width: 30px; height: 30px;
+    background: linear-gradient(135deg, var(--paper) 49%, var(--manila-edge) 50%, var(--manila) 100%); }
+  .stamp { display: inline-block; font: 700 .85rem var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--blue);
+    border: 2.5px solid var(--blue); border-radius: 4px; padding: 3px 10px; transform: rotate(-4deg); }
+  .stamp.big { font-size: clamp(1.4rem, 3vw, 2.2rem); padding: 6px 18px; border-width: 4px; }
+  .stamp.fall { color: var(--fall); border-color: var(--fall); }
+  .stamp.rise { color: var(--rise); border-color: var(--rise); }
+  .stamp.grey { color: var(--muted); border-color: var(--muted); }
+  .memo-to { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 14px;
+    border-bottom: 2px solid #c9cde0; font-family: var(--mono); font-size: .9rem; }
+  .memo-to b { font-family: var(--type); font-size: 1.05rem; }
+  .assign { font: 700 clamp(2rem, 4vw, 2.9rem)/1.1 var(--type); margin: 22px 0 12px; }
+  .steplist { list-style: none; padding: 0; margin: 18px 0 0; }
+  .steplist li { border-top: 1.5px dashed #cfcab9; padding: 16px 0; }
+  .steplist .n { font: 700 .95rem var(--mono); color: var(--blue); margin-right: 10px; }
+  .steplist h3 { display: inline; font: 700 1.25rem var(--sans); }
+  .steplist p { color: var(--ink-soft); margin-top: 4px; }
+
+  .brief-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: clamp(20px, 4vw, 56px); align-items: start; }
+  @media (max-width: 900px) { .brief-grid { grid-template-columns: 1fr; } }
+  .pinned { position: relative; background: #fff; border: 1px solid #e6e0cf; padding: 34px 26px 22px; text-align: center;
+    transform: rotate(1.6deg); box-shadow: 0 12px 26px rgba(60,45,10,.14); margin-top: 26px; }
+  .clip { position: absolute; top: -26px; left: 28px; width: 22px; height: 62px; border: 3px solid #9aa0ad; border-radius: 12px;
+    background: transparent; transform: rotate(-12deg); }
+  .clip::after { content: ""; position: absolute; left: 3px; top: 10px; width: 10px; height: 40px; border: 3px solid #9aa0ad; border-radius: 8px; border-bottom: 0; }
+  .pinned h3 { font: italic 400 3rem/1 var(--serif); }
+  .pinned .latin { font: italic 700 .95rem var(--mono); color: var(--ink-soft); margin: 6px 0 10px; }
+  .pinned .rule { border-top: 1.5px dashed #cfcab9; margin: 14px 0 12px; }
+  .needs-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; text-align: left; font-size: .95rem; margin-top: 10px; }
+  .needs-grid dt { color: var(--ink-soft); }
+  .needs-grid dd { margin: 0; font-weight: 700; }
+  .pill { display: inline-block; font-size: .78rem; padding: 2px 10px; border-radius: 999px; margin: 2px 2px; background: #eef8e2; color: #2f5a10; border: 1px solid #cfe9b0; }
+  .pill.bad { background: #fdeeea; color: #8a2c1d; border-color: #f2cdc4; }
+  .center-cta { display: flex; justify-content: center; margin-top: 36px; }
+
+  /* ---------- 2. evidence board ---------- */
+  .page-head { text-align: center; padding: 42px 0 8px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .page-head .display { font-size: clamp(2.4rem, 5vw, 4.2rem); }
+  .board { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(380px, 1.15fr); gap: 26px; margin-top: 54px; align-items: start; }
+  @media (max-width: 1000px) { .board { grid-template-columns: 1fr; } }
+  .map-sheet { padding: 16px; position: sticky; top: 82px; }
+  .tape { position: absolute; top: -12px; left: 50%; width: 110px; height: 26px; transform: translateX(-50%) rotate(-3deg);
+    background: rgba(181,236,122,.75); border: 1px solid rgba(143,209,79,.6); }
+  #map { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid #e3ddc9; background: #eef2fb; touch-action: none; cursor: grab; }
+  #map .land { fill: #f7f1df; stroke: #d6cbaf; stroke-width: .5; }
+  #map .grat { fill: none; stroke: #dfe5f3; stroke-width: .5; }
+  .region { cursor: pointer; outline: none; }
+  .region .area { fill: var(--lime); fill-opacity: .75; stroke: var(--ink); stroke-width: 1.4; animation: glow 1.8s infinite; }
+  .region.visited .area { fill: var(--blue); fill-opacity: .28; stroke: var(--blue); animation: none; }
+  .region.sel .area { fill: var(--blue); fill-opacity: .55; stroke: var(--ink); }
+  .region.nodata .area { fill: #d5d7de !important; stroke: #9aa0ad !important; animation: none; }
+  .region:hover .area, .region:focus .area { fill-opacity: .9; }
+  .region .halo { fill: none; stroke: var(--ink); animation: glow2 1.6s infinite; }
+  .region.visited .halo { display: none; }
+  .region text { font: 700 11px var(--sans); fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }
+  @keyframes glow { 0%,100% { fill-opacity: .45 } 50% { fill-opacity: .9 } }
+  @keyframes glow2 { 0%,100% { stroke-opacity: .15 } 50% { stroke-opacity: .8 } }
+  .map-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font: .78rem var(--mono); color: var(--ink-soft); }
+  .zoombar { display: flex; gap: 6px; }
+  .zoombar button { border: 1.5px solid var(--ink); background: #fff; border-radius: 6px; padding: 2px 9px; font: 700 .75rem var(--mono); }
+  .examined { font: 700 .8rem var(--mono); letter-spacing: .08em; }
+  .examined b { color: var(--blue); }
+  .tooltip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font-size: .8rem; padding: 9px 11px; border-radius: 8px; max-width: 250px; z-index: 50; line-height: 1.45; }
+
+  .dossier { padding: clamp(18px, 2.6vw, 30px); display: flex; flex-direction: column; gap: 16px; min-height: 420px; }
+  .dossier .empty { margin: auto; text-align: center; color: var(--ink-soft); max-width: 300px; }
+  .dossier .empty .big { font: italic 2.4rem var(--serif); color: var(--ink); }
+  .dossier h2 { font: 700 clamp(1.6rem, 2.6vw, 2.1rem)/1.1 var(--type); }
+  .dossier .meta { font: .74rem var(--mono); color: var(--muted); letter-spacing: .04em; margin-top: 6px; }
+  .cluetabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cluetabs button { border: 1.5px solid #cfcab9; background: #fff; border-radius: 8px 8px 2px 2px; padding: 5px 11px; font-size: .86rem; }
+  .cluetabs button.key { border-color: var(--ink); }
+  .cluetabs button[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .cluetabs button:disabled { opacity: .4; cursor: not-allowed; }
+  .legend-line { font-size: .78rem; color: var(--ink-soft); margin-top: -8px; }
+  .legend-line i { font-style: normal; display: inline-block; width: 9px; height: 9px; background: var(--lime); border: 1.5px solid var(--ink); border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .chart-head h3 { font: 700 1rem var(--sans); }
+  .toggle { font-size: .8rem; color: var(--ink-soft); display: flex; gap: 6px; align-items: center; }
+  .chart { width: 100%; height: 240px; }
+  .src { font: .72rem/1.5 var(--mono); color: var(--muted); }
+  .finding { display: flex; gap: 16px; align-items: flex-start; border: 1.5px solid var(--ink); border-radius: 10px; padding: 12px 14px; background: #fff; }
+  .finding .txt strong { display: block; font: italic 1.5rem/1.1 var(--serif); margin-bottom: 4px; }
+  .finding .txt p { color: var(--ink-soft); font-size: .92rem; }
+  .tests { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .tests { grid-template-columns: 1fr; } }
+  .tag { border: 1.5px dashed #b9b4a3; border-radius: 10px; padding: 10px 12px; background: #fffdf7; }
+  .tag h4 { margin: 0 0 6px; font: 700 .72rem var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
+  .tag dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: .86rem; }
+  .tag dt { color: var(--ink-soft); } .tag dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .note { background: #fff8e1; border: 1px solid #f0dfa6; border-radius: 10px; padding: 10px 14px; font-size: .9rem; }
+  .needbar { margin-top: 4px; }
+  .needbar .lbl { display: flex; justify-content: space-between; font-size: .82rem; color: var(--ink-soft); margin-bottom: 6px; }
+  .needbar svg { width: 100%; height: 46px; display: block; }
+
+  /* make your call */
+  .call { margin-top: 30px; padding: clamp(18px, 3vw, 32px); }
+  .call-grid { display: grid; grid-template-columns: 1fr 1fr 1.3fr auto; gap: 14px; align-items: end; margin-top: 14px; }
+  @media (max-width: 960px) { .call-grid { grid-template-columns: 1fr; } }
+  .field label { display: block; font: 700 .7rem var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; }
+  .field select, .field textarea { width: 100%; border: 1.5px solid var(--ink); border-radius: 8px; padding: 9px 10px; background: #fff; font-size: .95rem; }
+  .field textarea { resize: vertical; min-height: 44px; height: 44px; }
+  .lockmsg { font: .82rem var(--mono); color: var(--ink-soft); margin-top: 10px; }
+
+  /* ---------- 3. replay ---------- */
+  .replay { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 40px; align-items: start; }
+  @media (max-width: 960px) { .replay { grid-template-columns: 1fr; } }
+  .scene { position: relative; height: 430px; border-radius: 14px; overflow: hidden; border: 2px solid var(--ink);
+    background: linear-gradient(#dfe8fb 0%, #f5f8ff 62%, #fff 100%); }
+  .scene .ground { position: absolute; left: -10%; right: -10%; bottom: -60px; height: 130px; border-radius: 50%; background: #e8dcb5; border-top: 2px solid var(--ink); }
+  .scene .tree { position: absolute; left: 50%; bottom: 56px; width: 300px; transform-origin: 50% 100%; transition: transform .4s ease, filter .4s ease, opacity .4s; }
+  .scene .year { position: absolute; top: 14px; left: 18px; font: italic 3.4rem/1 var(--serif); }
+  .scene .place { position: absolute; top: 22px; right: 18px; font: 700 .72rem var(--mono); letter-spacing: .14em; text-transform: uppercase; background: #fff; border: 1.5px solid var(--ink); border-radius: 999px; padding: 4px 10px; }
+  .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .meter .lbl { display: flex; justify-content: space-between; font: 700 .72rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .bar { height: 12px; border: 1.5px solid var(--ink); border-radius: 999px; overflow: hidden; background: #fff; margin-top: 5px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--lime-deep); transition: width .35s, background .35s; }
+  .log { padding: 20px 22px; }
+  .timeline { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; margin: 10px 0 4px; }
+  .timeline span { height: 26px; border-radius: 3px; background: #eceae2; border: 1px solid #ddd8c8; }
+  .timeline span.ok { background: var(--lime-deep); border-color: #6aaa2e; }
+  .timeline span.meh { background: #f2c76a; border-color: #d39e2a; }
+  .timeline span.bad { background: #e8836f; border-color: #c2412d; }
+  .timeline span.na { background: repeating-linear-gradient(45deg, #eee, #eee 3px, #ddd 3px, #ddd 6px); }
+  .tl-years { display: flex; justify-content: space-between; font: .7rem var(--mono); color: var(--muted); }
+  .readout { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: .9rem; }
+  .readout th, .readout td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+  .readout th { font: 700 .68rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .readout td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .ok-t { color: var(--rise); font-weight: 700; } .meh-t { color: var(--amber); font-weight: 700; } .bad-t { color: var(--fall); font-weight: 700; }
+  .report { margin-top: 30px; }
+  .report-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .report h3 { font: 700 1.15rem var(--type); margin: 22px 0 8px; }
+  .report p, .report li { color: var(--ink-soft); }
+  .report ul { padding-left: 20px; margin: 0; }
+  .report li { margin: 6px 0; }
+  .report li b { color: var(--ink); }
+  .ranking { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .ranking th, .ranking td { padding: 8px 8px; border-bottom: 1px solid #e6e0cf; text-align: left; }
+  .ranking th { font: 700 .68rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .ranking tr.mine td { background: #f1fbe6; }
+  .actions { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 26px; }
+
+  /* evidence tiers + rule cards */
+  .tier { display: inline-block; min-width: 20px; text-align: center; font: 700 .7rem/18px var(--mono); border-radius: 4px; margin-right: 6px; border: 1.5px solid var(--ink); }
+  .tier.tA { background: var(--ink); color: #fff; } .tier.tB { background: var(--blue-soft); color: var(--blue); border-color: var(--blue); } .tier.tC { background: #fff; color: var(--muted); border-color: #c9ccd6; }
+  .rulelist { list-style: none; padding: 0; margin: 8px 0 0; }
+  .rulelist li { margin: 6px 0; font-size: .9rem; color: var(--ink-soft); }
+  .rulecard { border: 1.5px solid #cfcab9; border-radius: 10px; padding: 10px 12px; background: #fffdf7; margin-bottom: 10px; }
+  .rc-head { display: flex; align-items: center; gap: 4px; } .rc-head b { flex: 1; }
+  .rc-n { font: 700 .75rem var(--mono); color: var(--blue); }
+  .rc-test { font-size: .86rem; color: var(--ink-soft); margin: 4px 0 6px; }
+  .rc-foot { font-size: .82rem; color: var(--ink-soft); margin-top: 6px; }
+  .strip { display: grid; grid-template-columns: repeat(25, 1fr); gap: 2px; }
+  .strip i { height: 12px; border-radius: 2px; background: #eceae2; }
+  .strip i.on.tA { background: var(--fall); } .strip i.on.tB { background: #e8836f; } .strip i.on.tC { background: #f2c76a; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: .78rem; border: 1px solid #ddd8c8; border-radius: 999px; padding: 2px 9px 2px 3px; color: var(--muted); background: #fff; }
+  .chip.on { color: var(--ink); border-color: var(--ink); }
+  .rise-t { color: var(--rise); font-weight: 700; } .grey-t { color: var(--muted); font-weight: 700; } .fall-t { color: var(--fall); font-weight: 700; }
+  .src a { color: var(--blue); }
+  footer { border-top: 1px solid var(--line); padding: 18px clamp(14px, 3vw, 32px); font: .74rem/1.6 var(--mono); color: var(--ink-soft); }
+  footer .data { color: var(--ink); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-tile" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2443d6" stroke-width="2.6" stroke-linecap="round"><circle cx="10" cy="10" r="6.5"/><path d="M15 15l6 6"/></svg>
+  </div>
+  <button class="brand" id="home-link">D² Detective</button>
+  <nav class="steps" aria-label="Progress">
+    <span data-step="brief">01 Briefing</span><span data-step="board">02 Evidence</span><span data-step="replay">03 Close the case</span>
+  </nav>
+  <div class="event">NASA SPACE APPS CHALLENGE</div>
+</header>
+
+<main>
+  <!-- ================= HOME ================= -->
+  <section class="screen" id="s-home">
+    <div class="hero">
+      <h1 class="display">Hey <span class="swash blue">D²</span> Detective!</h1>
+      <img class="detective" src="assets/detective.png" alt="The D² Detective, looking through a magnifying glass" />
+      <p class="lead">A tree needs a home. Follow the clues in NASA's climate records to find where it could grow.</p>
+      <button class="btn" id="start">Start mission <span class="arrow">→</span></button>
+    </div>
+  </section>
+
+  <!-- ================= BRIEFING ================= -->
+  <section class="screen hidden" id="s-brief">
+    <div class="page-head">
+      <div class="kicker">Mission briefing</div>
+      <h2 class="display">The <span class="swash blue">Scots pine</span> case</h2>
+      <p class="lead">Detective, where would you plant this seed?</p>
+    </div>
+    <div class="folder">
+      <div class="tab">CASE FILE</div>
+      <div class="body">
+        <div class="brief-grid">
+          <article class="sheet dots">
+            <div class="memo-to"><span>TO <b>Earth Detective</b></span><span class="stamp">Confidential</span></div>
+            <h3 class="assign">Field assignment</h3>
+            <p class="lead" style="font-size:1.1rem">A good planting site can look very different 20 years later. Follow the evidence and find a home for this Scots pine.</p>
+            <ol class="steplist">
+              <li><span class="n">01.</span><h3>Examine the evidence</h3><p>Compare NASA climate records for six very different regions — including home, around Berlin — with the warning signs that stress Scots pines.</p></li>
+              <li><span class="n">02.</span><h3>Make your call</h3><p>Choose one planting site and record the clue that convinced you. You only have one seed.</p></li>
+              <li><span class="n">03.</span><h3>Close the case</h3><p>Replay 20 years of real climate history (2005–2024) and see which stress signals from Scots pine research fired — and whether the satellite saw the land lose its green.</p></li>
+            </ol>
+            <div class="corner"></div>
+          </article>
+          <aside class="pinned">
+            <div class="clip" aria-hidden="true"></div>
+            <h3>Scots pine</h3>
+            <div class="latin">Pinus sylvestris</div>
+            <img src="assets/scots-pine.png" alt="Illustration of a Scots pine with a cone and a seed" style="width:78%" />
+            <div class="rule"></div>
+            <p><b>Growing conditions</b><br><span style="color:var(--ink-soft)">Full sun and soil that drains well. Stressed by drought and unusually cold late winters.</span></p>
+            <button class="linkish" id="guide-toggle" aria-expanded="false" style="margin-top:6px">Species guide</button>
+            <div id="guide" class="hidden" style="text-align:left;margin-top:12px"></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="center-cta"><button class="btn" id="to-board">Examine the evidence <span class="arrow">→</span></button></div>
+  </section>
+
+  <!-- ================= EVIDENCE BOARD ================= -->
+  <section class="screen hidden" id="s-board">
+    <div class="page-head">
+      <div class="kicker">Evidence board</div>
+      <h2 class="display">Six places, <span class="swash">one seed</span></h2>
+      <p class="lead">Open every region's file. Look at the trends, not just today's numbers: your pine has to live here for 20 years.</p>
+    </div>
+
+    <div id="nodata" class="sheet dots hidden" style="margin-top:40px;text-align:center">
+      <div class="kicker">No evidence on file</div>
+      <p class="lead" style="margin:10px auto">This game only uses real NASA data. Run <code>pipeline/build_data.py</code> and open the site from GitHub Pages or a local server — or load the data file here:</p>
+      <label class="btn ghost" style="margin-top:8px">Load game_data.json <input type="file" id="datafile" accept=".json,application/json" class="sr-only" /></label>
+      <p class="src" id="datafile-msg" style="margin-top:10px"></p>
+    </div>
+
+    <div id="board-body">
+      <div class="board">
+        <div class="sheet dots map-sheet">
+          <div class="tape" aria-hidden="true"></div>
+          <svg id="map" viewBox="0 0 640 400" role="img" aria-label="Map of the six candidate regions"></svg>
+          <div class="map-foot">
+            <span class="zoombar"><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-europe">ALL SIX</button><button id="zoom-reset">WORLD</button></span>
+            <span class="examined" id="examined">EXAMINED <b>0</b> / 6</span>
+          </div>
+        </div>
+        <article class="sheet dots dossier" id="dossier">
+          <div class="empty"><div class="big">Pick a region</div><p>Click a highlighted area on the map to open its file.</p></div>
+        </article>
+      </div>
+
+      <div class="folder" style="margin-top:70px">
+        <div class="tab">02 · MAKE YOUR CALL</div>
+        <div class="body call">
+          <p class="lead" style="font-size:1.05rem">One seed. Where will it grow best — and which clue convinced you?</p>
+          <div class="call-grid">
+            <div class="field"><label for="pick-region">Planting site</label><select id="pick-region"></select></div>
+            <div class="field"><label for="pick-clue">The clue that convinced you</label><select id="pick-clue"></select></div>
+            <div class="field"><label for="pick-note">Your reasoning (optional)</label><textarea id="pick-note" maxlength="280" placeholder="e.g. Soil moisture is stable and it's cool enough"></textarea></div>
+            <button class="btn" id="plant" disabled>Plant the seed <span class="arrow">→</span></button>
+          </div>
+          <div class="lockmsg" id="lockmsg"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= REPLAY / CLOSE THE CASE ================= -->
+  <section class="screen hidden" id="s-replay">
+    <div class="page-head">
+      <div class="kicker" id="replay-kicker">Close the case · replaying 2005–2024</div>
+      <h2 class="display" id="replay-title">Twenty years in …</h2>
+      <p class="lead">Real NASA records, year by year. Each square is a year: green = no stress signal, amber = weak (tier C) signal, red = a strong signal from Scots pine research.</p>
+    </div>
+    <div class="replay">
+      <div>
+        <div class="scene" id="scene">
+          <div class="year" id="r-year">2005</div>
+          <div class="place" id="r-place"></div>
+          <img class="tree" id="r-tree" src="assets/scots-pine-tree.png" alt="Your Scots pine" />
+          <div class="ground"></div>
+        </div>
+        <div class="meters">
+          <div class="meter"><div class="lbl"><span>Vigour (stress meter)</span><span id="r-hp">100%</span></div><div class="bar"><i id="r-hbar"></i></div></div>
+          <div class="meter"><div class="lbl"><span>Growth</span><span id="r-gp">0%</span></div><div class="bar"><i id="r-gbar" style="background:#b5653a"></i></div></div>
+        </div>
+      </div>
+      <div class="sheet dots log">
+        <div class="kicker">Year log</div>
+        <div class="timeline" id="timeline"></div>
+        <div class="tl-years"><span>2005</span><span>2014</span><span>2024</span></div>
+        <table class="readout" id="readout"></table>
+        <div class="actions" style="margin-top:14px"><button class="linkish" id="skip">Skip to the verdict</button></div>
+      </div>
+    </div>
+    <div id="report" class="hidden"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="data" id="data-line">Loading climate records…</div>
+  <div>Statistics: seasonal cycle removed · Mann-Kendall (Hamed-Rao, 12-month lag) + Sen's slope with Benjamini-Hochberg false-discovery-rate correction across all trend tests · least-squares trend with 95% CI and t-test. Stress signals and evidence tiers from published Scots pine research (sources S3, S4, S5, S11, S13, S14), tested against MODIS greenness. Vigour and growth only visualise stress — not a survival forecast. Illustrations © the D² Detective team.</div>
+</footer>
+<div class="tooltip hidden" id="tooltip"></div>
+
+<script>
+/* ======================== stats.js (unchanged) ======================== */
+/*@@STATS@@*/
+</script>
+<script>
+/* ======================== world land (Natural Earth 110m) ======================== */
+const LAND = /*@@LAND@@*/;
+</script>
+<script>
+/* ======================== game logic (game/game_logic.js) ======================== */
+/*@@LOGIC@@*/
+</script>
+</body>
+</html>
